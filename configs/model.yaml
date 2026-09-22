@@ -1,0 +1,49 @@
+# Forecast model configuration. Every value here is logged to MLflow.
+
+quantiles: [0.1, 0.5, 0.9]
+
+# What LightGBM learns:
+#   level          -> the price itself
+#   delta_7d_mean  -> price minus its trailing 7-day mean (known at the cutoff);
+#                     the mean is added back at prediction time. Trees cannot
+#                     extrapolate, and price levels drift with gas prices that we
+#                     do not observe, so learning the deviation is more robust.
+# Chosen on the first six backtest folds only (see DECISIONS.md).
+target_mode: delta_7d_mean
+
+# Conformal calibration of the quantiles (see models.QuantileLGBM):
+#   none  -> raw LightGBM quantiles
+#   outer -> shift P10 and P90 only
+#   all   -> shift every quantile, including a median bias correction
+calibration:
+  mode: all
+  days: 56
+
+lightgbm:
+  n_estimators: 700
+  learning_rate: 0.03
+  num_leaves: 31
+  min_child_samples: 50
+  subsample: 0.8
+  subsample_freq: 1
+  colsample_bytree: 0.8
+  reg_lambda: 1.0
+  random_state: 42
+  n_jobs: 4
+  verbose: -1
+
+baseline:
+  # Seasonal naive: P50 = price at the same UK clock time one week earlier.
+  # P10/P90 add empirical residual quantiles per local hour, estimated on the
+  # most recent `residual_window_days` of the training window.
+  residual_window_days: 180
+
+backtest:
+  first_test_month: "2025-03"
+  # Train on delivery days up to test_start - gap_days. At the cutoff for the
+  # first test day (09:00 on the day before), the newest fully known delivery
+  # day is two days before it.
+  gap_days: 2
+  # Folds up to and including this index are used for model selection; later
+  # folds are reported separately as fully out-of-sample.
+  selection_folds: 6

@@ -168,3 +168,55 @@ Parquet files can be loaded into BigQuery.
 - **Settlement calendar generated in SQL**, with DST-aware day boundaries via
   adapter-dispatched timezone macros (DuckDB `timezone()` and BigQuery
   `TIMESTAMP(DATETIME, tz)`).
+
+## 2026-09-22 — Modelling choices
+
+**Walk-forward design.** There are 19 monthly folds, 2025-03 to 2026-09 (the
+last one partial). Training uses an expanding window from 2024-03-01, refitted
+each fold on delivery days up to `test_start - 2 days`. At 09:00 on D-1 the
+newest fully settled day is D-2. `assert_no_leakage` enforces this on every fold
+by checking that the last training period ended before the first test cutoff.
+Monthly refits approximate the weekly production retrain and keep the backtest
+to about 3 minutes.
+
+**Model selection without peeking at the hold-out.** Folds 1-6 (2025-03 to
+2025-08) are the selection set; folds 7-19 are reported separately. Two choices
+were made on the selection folds:
+
+| Choice | Options (selection-fold pinball) | Picked |
+|---|---|---|
+| Target | `level` 4.69, `delta_7d_mean` 4.66 | `delta_7d_mean` |
+| Calibration | `none` 4.66 (coverage 55%), `outer` 4.46, `all` 4.45 (coverage 81%) | `all` |
+
+The hold-out folds agree with both choices: `level` scores 6.55 against
+`delta_7d_mean`'s 5.76, and `all` scores 5.37 against `none`'s 5.76. The
+LightGBM hyperparameters are sensible defaults and were not tuned, to avoid
+overfitting the backtest.
+
+**Target: price minus trailing 7-day mean.** Prices in 2026-Q3 averaged about
+£120/MWh, above anything in the first year of training. Trees cannot
+extrapolate levels, and without a gas price input the level has to come from
+recent prices. Learning the deviation from the 7-day mean, which is known at the
+cutoff, handles level shifts better.
+
+**Conformal calibration.** Raw LightGBM quantiles covered only about 55% of
+outcomes with the P10-P90 interval. A split-conformal step fixes this. The
+model is fitted on the training window minus its last 56 days (with the same
+two-day gap). On those 56 days we measure, for each quantile, the shift that
+makes exactly that fraction of outcomes fall below it. The model is then refitted
+on the full window, and the shifts are applied at prediction time. The
+calibrated interval achieved 78.5% coverage and pinball loss fell from 5.40 to
+5.07. Refitting after calibrating is the usual practical compromise; strict
+split-conformal guarantees would need the calibrated model itself.
+
+**Seasonal naive baseline, probabilistic.** P50 is the same UK clock time last
+week, as the brief requires. P10/P90 add empirical residual quantiles by local
+hour over the last 180 training days. That lets the baseline be scored with the
+same pinball and coverage metrics. Its coverage is also about 78%, so the
+comparison is like for like: the models reach similar coverage, and LightGBM's
+interval is half as wide.
+
+**Model registry.** Models are logged as MLflow pyfunc models, with the
+LightGBM boosters and calibration shifts as artifacts. They are registered as
+`elecprice-lgbm-quantile`, and production is the `champion` alias (MLflow
+stages are deprecated).

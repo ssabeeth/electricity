@@ -14,7 +14,7 @@ from elecprice.config import REPO_ROOT, get_settings
 from elecprice.logging_utils import get_logger
 from elecprice.modelling import report, tracking
 from elecprice.modelling.backtest import BacktestResult, run_backtest
-from elecprice.modelling.data import TARGET, ModelConfig, load_frame
+from elecprice.modelling.data import TARGET, ModelConfig, complete_days, load_frame
 from elecprice.modelling.metrics import evaluate
 from elecprice.modelling.models import QuantileLGBM, SeasonalNaive
 
@@ -131,7 +131,7 @@ def train_candidate(
     in ``promote_if_better`` only if the candidate wins.
     """
     config = config or ModelConfig.load()
-    df = load_frame()
+    df = complete_days(load_frame())
     start, end = latest_fold_window(df, eval_days)
     gap = config.backtest["gap_days"]
     train = df[df["settlement_date"] <= start - pd.Timedelta(days=gap)]
@@ -178,6 +178,7 @@ def register_model(
     tags: dict[str, str],
     *,
     alias: str | None = None,
+    sample: pd.DataFrame | None = None,
 ) -> str:
     """Log ``model`` in a training run and register it. Returns the version."""
     tracking.configure(TRAINING_EXPERIMENT)
@@ -185,7 +186,7 @@ def register_model(
         mlflow.log_params(config.to_flat_dict())
         mlflow.log_metrics({k: float(v) for k, v in metrics.items()})
         mlflow.set_tags(tags)
-        uri = tracking.log_quantile_model(model)
+        uri = tracking.log_quantile_model(model, sample=sample)
     mv = mlflow.register_model(uri, tracking.REGISTERED_MODEL, tags=tags)
     client = MlflowClient()
     for k, v in metrics.items():

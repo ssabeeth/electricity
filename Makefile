@@ -69,3 +69,23 @@ mlflow-ui: ## Local MLflow UI on the sqlite store
 .PHONY: simulate
 simulate: ## Battery arbitrage simulation over the backtest forecasts + reports/battery.md
 	$(UV) run elec simulate
+
+AIRFLOW_VERSION ?= 3.3.2
+.PHONY: test-airflow
+test-airflow: ## DAG integrity tests in a separate Airflow venv
+	test -x .venv-airflow/bin/python || ( $(UV) venv .venv-airflow --python 3.12 && \
+	  $(UV) pip install --python .venv-airflow/bin/python "apache-airflow==$(AIRFLOW_VERSION)" pytest \
+	  --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-$(AIRFLOW_VERSION)/constraints-3.12.txt" )
+	AIRFLOW_HOME=$${TMPDIR:-/tmp}/airflow_home .venv-airflow/bin/python -m pytest -q -p no:cacheprovider tests/airflow
+
+.PHONY: daily
+daily: ## What the daily DAG does: ingest, dbt build, forecast, schedule, monitor
+	$(UV) run elec ingest --days 3
+	$(UV) run elec dbt build
+	$(UV) run elec forecast
+	$(UV) run elec schedule
+	$(UV) run elec monitor
+
+.PHONY: retrain
+retrain: ## Champion/challenger retrain
+	$(UV) run elec retrain

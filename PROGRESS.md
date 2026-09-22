@@ -11,8 +11,8 @@ _No blockers._ The remote `origin` is `https://github.com/ssabeeth/electricity.g
 | 3. dbt | done | `v0.3-dbt` |
 | 4. Modelling | done | `v0.4-modelling` |
 | 5. Battery simulation | done | `v0.5-battery` |
-| 6. Orchestration | next | |
-| 7. Serving | | |
+| 6. Orchestration | done | `v0.6-orchestration` |
+| 7. Serving | next | |
 | 8. Containerise | | |
 | 9. Deployment prep | | |
 | 10. README | | |
@@ -182,3 +182,31 @@ Done:
   - forecast schedules don't change when actual prices change (no leakage);
   - fixed-rule windows and determinism;
   - an end-to-end simulate/summarise run.
+
+### Phase 6 — Orchestration (2026-09-22)
+
+Done:
+- `elecprice.pipeline` covers the live daily steps (`elec forecast`,
+  `elec schedule`, `elec monitor`) and the champion/challenger retrain
+  (`elec retrain`). It has atomic Parquet upserts for serving outputs.
+- Airflow 3.3 DAGs: `elec_ingest` (every 3 h), `elec_daily_forecast` (09:05
+  UK) and `elec_weekly_retrain` (Sunday 06:00 UK). All call the `elec` CLI via
+  `BashOperator`.
+- Verified locally:
+  - forecasting tomorrow before its cutoff is refused;
+  - today's forecast and schedule are written;
+  - the retrain registers a challenger and gives "no challenger to judge" on
+    its first run;
+  - the MLflow store was rebuilt so every version uses models-from-code logging
+    with a signature.
+- Tests:
+  - 3 pure tests (promotion rule, judgement fold, upsert semantics and
+    permissions);
+  - 1 end-to-end test on the fixture warehouse with a throwaway MLflow store
+    (bootstrap → challenger → judged promotion → forecast → schedule → monitor);
+  - 5 DAG integrity tests on real Airflow 3.3 (new `airflow` CI job, or
+    `make test-airflow` locally).
+- Fixed along the way:
+  - output files were created with mode 0600, which would break cross-container
+    reads;
+  - the partially settled current day was being included in training.

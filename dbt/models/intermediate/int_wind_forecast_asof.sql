@@ -16,6 +16,7 @@ candidates as (
     left join {{ ref('stg_elexon__wind_forecast') }} as f
         on f.valid_hour_utc = c.hour_utc
         and f.published_at <= c.cutoff_utc
+    where true
     qualify row_number() over (
         partition by c.settlement_date, c.settlement_period
         order by f.published_at desc nulls last

@@ -8,6 +8,7 @@ with source as (
 deduped as (
     select *
     from source
+    where true
     qualify row_number() over (
         partition by settlement_date, settlement_period
         order by _ingested_at desc

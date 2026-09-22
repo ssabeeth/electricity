@@ -2,6 +2,7 @@
 with deduped as (
     select *
     from {{ source('lake', 'elexon_windfor') }}
+    where true
     qualify row_number() over (
         partition by publish_time, start_time
         order by _ingested_at desc

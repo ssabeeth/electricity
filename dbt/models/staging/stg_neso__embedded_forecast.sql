@@ -2,6 +2,7 @@
 with deduped as (
     select *
     from {{ source('lake', 'neso_embedded_forecast') }}
+    where true
     qualify row_number() over (
         partition by forecast_issued_at, settlement_date, settlement_period
         order by _ingested_at desc

@@ -3,6 +3,8 @@
   lives here behind adapter.dispatch, so models stay target-agnostic.
   Convention: timestamps are UTC. In DuckDB they are naive TIMESTAMP; in
   BigQuery they are TIMESTAMP (which is UTC by definition).
+  Models write `where true` before a bare QUALIFY: BigQuery has required
+  QUALIFY to be accompanied by WHERE, GROUP BY or HAVING.
 -#}
 
 {# UK local wall-clock (naive) -> UTC instant #}

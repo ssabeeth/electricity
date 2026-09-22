@@ -19,6 +19,7 @@ candidates as (
         on f.settlement_date = c.settlement_date
         and f.settlement_period = c.settlement_period
         and f.issued_at <= c.cutoff_utc
+    where true
     qualify row_number() over (
         partition by c.settlement_date, c.settlement_period
         order by f.issued_at desc nulls last

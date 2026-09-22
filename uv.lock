@@ -689,6 +689,7 @@ dev = [
     { name = "pytest" },
     { name = "pytest-cov" },
     { name = "ruff" },
+    { name = "sqlglot" },
 ]
 
 [package.metadata]
@@ -724,6 +725,7 @@ dev = [
     { name = "pytest", specifier = ">=8.3" },
     { name = "pytest-cov", specifier = ">=5.0" },
     { name = "ruff", specifier = ">=0.7" },
+    { name = "sqlglot", specifier = ">=25" },
 ]
 
 [[package]]

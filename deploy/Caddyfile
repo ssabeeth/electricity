@@ -1,0 +1,48 @@
+# Reverse proxy with automatic HTTPS (Let's Encrypt) for the VPS deployment.
+# Values come from .env: DOMAIN, ACME_EMAIL, BASIC_AUTH_USER, BASIC_AUTH_HASH
+# (generate the hash with: docker run --rm caddy:2 caddy hash-password).
+{
+	email {$ACME_EMAIL}
+}
+
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}
+
+(basic_auth) {
+	basic_auth {
+		{$BASIC_AUTH_USER} {$BASIC_AUTH_HASH}
+	}
+}
+
+# Airflow: protected by its own login (FAB auth manager, admin user from .env).
+# Proxy basic auth is deliberately NOT used here: the Airflow 3 UI sends
+# "Authorization: Bearer" headers, which would collide with Basic credentials.
+airflow.{$DOMAIN} {
+	import security_headers
+	reverse_proxy airflow-apiserver:8080
+}
+
+# MLflow has no login of its own in this setup: basic auth at the proxy.
+mlflow.{$DOMAIN} {
+	import security_headers
+	import basic_auth
+	reverse_proxy mlflow:5000
+}
+
+# Read-only API over public-data forecasts. Add `import basic_auth` to restrict.
+api.{$DOMAIN} {
+	import security_headers
+	reverse_proxy api:8000
+}
+
+# Dashboard. Add `import basic_auth` to restrict.
+{$DOMAIN} {
+	import security_headers
+	reverse_proxy dashboard:8501
+}

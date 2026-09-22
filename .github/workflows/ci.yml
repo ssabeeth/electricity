@@ -80,8 +80,17 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: docker/setup-buildx-action@v4.4.1
-      - name: Validate the Compose file
-        run: cp .env.example .env && docker compose config --quiet
+      - name: Validate the Compose files (local and VPS production override)
+        run: |
+          cp .env.example .env && docker compose config --quiet
+          DOMAIN=example.com ACME_EMAIL=ops@example.com BASIC_AUTH_USER=ops BASIC_AUTH_HASH=x \
+            docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml config --quiet
+      - name: Validate the Caddyfile
+        run: |
+          docker run --rm -v "$PWD/deploy/Caddyfile:/etc/caddy/Caddyfile:ro" \
+            -e DOMAIN=example.com -e ACME_EMAIL=ops@example.com -e BASIC_AUTH_USER=ops \
+            -e 'BASIC_AUTH_HASH=$2a$14$Zkx19XLiW6VYouLHR5NmfOFU0z2GTNmpkT/5qqR7hx4IjWJPDhjvG' \
+            caddy:2 caddy validate --config /etc/caddy/Caddyfile
       - name: Build the app and Airflow images
         run: docker compose build
       - name: Smoke-test the images

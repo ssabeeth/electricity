@@ -2,6 +2,7 @@
 with deduped as (
     select *
     from {{ source('lake', 'carbon_intensity') }}
+    where true
     qualify row_number() over (partition by start_time order by _ingested_at desc) = 1
 )
 

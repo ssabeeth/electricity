@@ -1,6 +1,7 @@
 with deduped as (
     select *
     from {{ source('lake', 'elexon_demand_outturn') }}
+    where true
     qualify row_number() over (
         partition by settlement_date, settlement_period
         order by _ingested_at desc, publish_time desc

@@ -1,6 +1,7 @@
 with deduped as (
     select *
     from {{ source('lake', 'elexon_fuelhh') }}
+    where true
     qualify row_number() over (
         partition by settlement_date, settlement_period, fuel_type
         order by _ingested_at desc, publish_time desc

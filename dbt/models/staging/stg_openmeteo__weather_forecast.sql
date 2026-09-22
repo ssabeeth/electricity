@@ -3,6 +3,7 @@
 with deduped as (
     select *
     from {{ source('lake', 'openmeteo_weather_forecast') }}
+    where true
     qualify row_number() over (
         partition by location_id, valid_time, lead_days
         order by _ingested_at desc

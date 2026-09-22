@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -104,6 +105,25 @@ def add_derived_features(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
+def _marts_schema() -> str:
+    """Where the marts live: DuckDB schema, or the BigQuery dataset dbt writes to."""
+    if os.environ.get("ELEC_WAREHOUSE", "duckdb") == "bigquery":
+        project = os.environ["GCP_PROJECT"]
+        return f"`{project}`.`{os.environ.get('BQ_DATASET', 'elecprice')}_marts`"
+    return "marts"
+
+
+def _query_bigquery(sql: str) -> pd.DataFrame:
+    from google.cloud import bigquery
+
+    client = bigquery.Client(project=os.environ["GCP_PROJECT"])
+    df = client.query(sql).to_dataframe()
+    for col in df.columns:  # keep the naive-UTC convention used everywhere else
+        if isinstance(df[col].dtype, pd.DatetimeTZDtype):
+            df[col] = df[col].dt.tz_convert("UTC").dt.tz_localize(None)
+    return df
+
+
 def load_frame(
     warehouse: Path | None = None,
     start: str | None = None,
@@ -111,8 +131,12 @@ def load_frame(
     *,
     with_target: bool = True,
 ) -> pd.DataFrame:
-    """Features (and optionally the realised price) for delivery days in [start, end]."""
+    """Features (and optionally the realised price) for delivery days in [start, end].
+
+    Reads the DuckDB warehouse by default, or BigQuery when ELEC_WAREHOUSE=bigquery.
+    """
     warehouse = warehouse or get_settings().warehouse_path
+    schema = _marts_schema()
     where = []
     if start:
         where.append(f"f.settlement_date >= date '{start}'")
@@ -121,19 +145,22 @@ def load_frame(
     clause = ("where " + " and ".join(where)) if where else ""
     target = ", a.price_gbp_mwh" if with_target else ""
     join = (
-        "left join marts.fct_price_actuals a using (settlement_date, settlement_period)"
+        f"left join {schema}.fct_price_actuals a using (settlement_date, settlement_period)"
         if with_target
         else ""
     )
     sql = f"""
         select f.*{target}
-        from marts.mart_features f
+        from {schema}.mart_features f
         {join}
         {clause}
         order by f.start_time_utc
     """
-    with duckdb.connect(str(warehouse), read_only=True) as con:
-        df = con.sql(sql).df()
+    if schema != "marts":
+        df = _query_bigquery(sql)
+    else:
+        with duckdb.connect(str(warehouse), read_only=True) as con:
+            df = con.sql(sql).df()
     df["settlement_date"] = pd.to_datetime(df["settlement_date"])
     return add_derived_features(df)
 

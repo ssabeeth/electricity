@@ -32,6 +32,7 @@ per_location as (
     inner join {{ ref('stg_openmeteo__weather_forecast') }} as w
         on w.valid_hour_utc = h.hour_utc
         and w.available_at <= h.cutoff_utc
+    where true
     qualify row_number() over (
         partition by h.hour_utc, w.location_id
         order by w.available_at desc

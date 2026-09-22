@@ -14,8 +14,8 @@ _No blockers._ The remote `origin` is `https://github.com/ssabeeth/electricity.g
 | 6. Orchestration | done | `v0.6-orchestration` |
 | 7. Serving | done | `v0.7-serving` |
 | 8. Containerise | done | `v0.8-containerise` |
-| 9. Deployment prep | next | |
-| 10. README | | |
+| 9. Deployment prep | done | `v0.9-deployment-prep` |
+| 10. README | next | |
 
 ## Log
 
@@ -269,3 +269,35 @@ Done:
 
 Environment note: Docker was installed via Homebrew (`colima`, `docker`,
 `docker-compose`, `docker-buildx`). Colima is left stopped.
+
+### Phase 9 — Deployment prep (2026-09-22). Not executed, as instructed.
+
+Done:
+- `docs/deploy_vps.md` covers sizing (measured), hardening, DNS, configuration,
+  start-up, a verification checklist, operations (updates, backups, restore,
+  alerts, logs, secret rotation), security notes and rollback.
+- `deploy/docker-compose.prod.yml` adds Caddy on 80/443, binds everything else
+  to localhost, sets memory limits and log rotation, and configures the Airflow
+  base URL. It is validated by merging the Compose config.
+- `deploy/Caddyfile` provides automatic HTTPS, security headers and basic auth
+  on MLflow. It is validated with `caddy validate`.
+- `docs/bigquery.md` covers GCP setup (service account, roles), configuration,
+  raw loading, `dbt build`, reading the marts from Python, Docker wiring, cost
+  and rollback.
+- `elec load-bigquery` supports full reloads, `--recent-days` appends and a
+  `--dry-run` that needs no credentials. `ELEC_WAREHOUSE=bigquery` switches the
+  modelling read path.
+- New tests:
+  - an offline BigQuery compile with every compiled file parsed by sqlglot
+    (94 files);
+  - loader planning matching the dbt source names;
+  - timestamp typing for BigQuery;
+  - the marts-schema switch.
+- Found by measuring: MLflow 3's job consumers used 2.1 GB. They are now
+  disabled, and the stack idles at about 1.7 GB.
+
+Owner actions (these cost money or need credentials):
+1. VPS: provision a 4-8 GB Ubuntu 24.04 machine, point DNS at it and follow
+   `docs/deploy_vps.md`.
+2. BigQuery: create a GCP project and service account and follow
+   `docs/bigquery.md`.

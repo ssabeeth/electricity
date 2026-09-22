@@ -169,6 +169,14 @@ def cmd_bootstrap(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_load_bigquery(args: argparse.Namespace) -> int:
+    from elecprice.bigquery_load import load
+
+    for p in load(recent_days=args.recent_days, dry_run=args.dry_run):
+        print(f"{p.table:30s} files={len(p.files):4d} rows={p.rows:,}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="elec", description=__doc__)
     parser.add_argument("--version", action="version", version=f"elecprice {__version__}")
@@ -234,6 +242,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("bootstrap", help="Idempotent first-run setup from a clean clone")
     p.add_argument("--step", choices=["all", "champion", "forecast"], default="all")
     p.set_defaults(handler=cmd_bootstrap)
+
+    p = sub.add_parser("load-bigquery", help="Load the Parquet lake into BigQuery raw tables")
+    p.add_argument("--recent-days", type=int, help="append only chunks ending in the last N days")
+    p.add_argument("--dry-run", action="store_true", help="show the plan; needs no credentials")
+    p.set_defaults(handler=cmd_load_bigquery)
 
     p = sub.add_parser("dbt", help="Run dbt with project paths wired in (e.g. elec dbt build)")
     p.add_argument("dbt_args", nargs=argparse.REMAINDER, help="arguments passed to dbt")

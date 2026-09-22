@@ -1,0 +1,121 @@
+# Production override for a single 4-8 GB VPS (see docs/deploy_vps.md).
+#
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build
+#
+# - Caddy terminates TLS and is the only thing listening publicly (80/443).
+# - Every other service is bound to 127.0.0.1 (reachable over an SSH tunnel).
+# - Memory caps from measured usage (idle ~1.7 GB, peak ~2.3 GB); fit 4 GB and 8 GB.
+# - Container logs are rotated.
+
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "3"
+
+x-airflow-prod-env: &airflow-prod-env
+  AIRFLOW__API__BASE_URL: https://airflow.${DOMAIN:?set DOMAIN in .env}
+  AIRFLOW__API__WORKERS: "2"
+  AIRFLOW__CORE__PARALLELISM: "4"
+  AIRFLOW__SCHEDULER__DAG_DIR_LIST_INTERVAL: "300"
+
+services:
+  caddy:
+    image: caddy:2
+    <<: *logging
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      DOMAIN: ${DOMAIN:?set DOMAIN in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in .env}
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER:?set BASIC_AUTH_USER in .env}
+      BASIC_AUTH_HASH: ${BASIC_AUTH_HASH:?set BASIC_AUTH_HASH in .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    depends_on:
+      - airflow-apiserver
+      - mlflow
+      - api
+      - dashboard
+    deploy:
+      resources:
+        limits:
+          memory: 128m
+
+  postgres:
+    <<: *logging
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  airflow-init:
+    <<: *logging
+
+  airflow-apiserver:
+    <<: *logging
+    environment:
+      <<: *airflow-prod-env
+    ports: !override
+      - "127.0.0.1:8080:8080"
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+
+  airflow-scheduler:
+    <<: *logging
+    environment:
+      <<: *airflow-prod-env
+    # LocalExecutor runs tasks inside the scheduler container: measured peak
+    # ~935 MB during the weekly backtest.
+    deploy:
+      resources:
+        limits:
+          memory: 2g
+
+  airflow-dag-processor:
+    <<: *logging
+    environment:
+      <<: *airflow-prod-env
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  mlflow:
+    <<: *logging
+    ports: !override
+      - "127.0.0.1:5001:5000"
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+
+  api:
+    <<: *logging
+    ports: !override
+      - "127.0.0.1:8000:8000"
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+
+  dashboard:
+    <<: *logging
+    ports: !override
+      - "127.0.0.1:8501:8501"
+    deploy:
+      resources:
+        limits:
+          memory: 768m
+
+volumes:
+  caddy-data:
+  caddy-config:

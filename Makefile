@@ -124,3 +124,12 @@ ps: ## Show stack status
 .PHONY: logs
 logs: ## Tail stack logs
 	docker compose logs -f --tail=100
+
+PROD := docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml
+.PHONY: prod-up
+prod-up: env ## VPS: start the stack behind Caddy/HTTPS (see docs/deploy_vps.md)
+	$(PROD) up -d --build
+
+.PHONY: prod-config
+prod-config: ## VPS: print the merged production Compose config
+	$(PROD) config

@@ -20,6 +20,7 @@ inner join {{ ref('stg_elexon__demand_forecast') }} as f
     on f.settlement_date = c.settlement_date
     and f.settlement_period = c.settlement_period
     and f.published_at <= {{ add_minutes('c.cutoff_utc', 180) }}  -- the bug
+where true
 qualify row_number() over (
     partition by c.settlement_date, c.settlement_period order by f.published_at desc
 ) = 1

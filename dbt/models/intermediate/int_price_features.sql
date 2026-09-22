@@ -33,6 +33,7 @@ lag_d{{ days_back }} as (
         on m.start_time_local = {{ add_days_local('c.start_time_local', -days_back) }}
         and m.available_at <= c.cutoff_utc
     -- the repeated hour on the autumn clock-change day matches twice; keep the later
+    where true
     qualify row_number() over (
         partition by c.settlement_date, c.settlement_period order by m.start_time_utc desc
     ) = 1
@@ -70,6 +71,7 @@ last_known as (
         on m.available_at <= d.cutoff_utc
         and m.available_at > {{ add_minutes('d.cutoff_utc', -24 * 60) }}
         and m.price_gbp_mwh is not null
+    where true
     qualify row_number() over (partition by d.settlement_date order by m.available_at desc) = 1
 )
 

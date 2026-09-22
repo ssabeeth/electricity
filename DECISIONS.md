@@ -377,3 +377,39 @@ Historical performance comes only from the walk-forward backtest.
   `--as-of '{{ dag_run.run_after }}'` and the delivery day is derived from the
   run's own time. The `warehouse` pool kept the concurrent catch-up runs from
   contending for DuckDB.
+
+## 2026-09-22 — Deployment prep (not executed)
+
+**VPS.** A single VM with Docker Compose and Caddy as the only public service
+(automatic HTTPS). Every other port is bound to `127.0.0.1`, because Docker's
+iptables rules bypass ufw.
+
+- **Airflow** is protected by its own FAB login. Proxy basic auth would collide
+  with the Airflow 3 UI's `Authorization: Bearer` API calls, so an IP allowlist
+  or VPN is documented as the second layer.
+- **MLflow** has no login of its own and can delete models, so it sits behind
+  Caddy basic auth.
+- **The API and dashboard** are public read-only views of public-data forecasts.
+  Basic auth is one line to add.
+
+Memory limits come from measured `docker stats`: about 1.7 GB idle and 2.3 GB
+at the weekly backtest peak, which fits a 4 GB VM. Measuring exposed that
+MLflow 3's server starts six job consumers for GenAI features (2.1 GB in total).
+`--workers 1` plus `MLFLOW_SERVER_ENABLE_JOB_EXECUTION=false` brings it down to
+335 MB. The configuration is validated (merged Compose config, `caddy validate`),
+but no VPS was provisioned because that costs money.
+
+**BigQuery.** The profile has existed since phase 3. This phase adds:
+
+- `elec load-bigquery`, which loads the Parquet lake into `elecprice_raw.<source>_<name>`.
+  It makes timestamps timezone-aware so BigQuery types them `TIMESTAMP`, which
+  avoids `DATETIME`/`TIMESTAMP` comparison errors.
+- `ELEC_WAREHOUSE=bigquery`, which makes the Python modelling code read the
+  marts from BigQuery.
+- An offline test that compiles the project for BigQuery with a throwaway key
+  and parses all 94 compiled files with sqlglot's BigQuery dialect.
+- `where true` before bare `QUALIFY` clauses, since BigQuery has required a
+  `WHERE`, `GROUP BY` or `HAVING` alongside `QUALIFY`.
+
+Runtime behaviour on BigQuery remains unverified until the owner creates
+credentials (docs/bigquery.md).

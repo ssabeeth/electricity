@@ -1,0 +1,22 @@
+{
+ "data": [
+  {
+   "dataset": "WINDFOR",
+   "publishTime": "2024-03-24T22:30:00Z",
+   "startTime": "2024-03-24T21:00:00Z",
+   "generation": 2107
+  },
+  {
+   "dataset": "WINDFOR",
+   "publishTime": "2024-03-24T22:30:00Z",
+   "startTime": "2024-03-24T22:00:00Z",
+   "generation": 1757
+  },
+  {
+   "dataset": "WINDFOR",
+   "publishTime": "2024-03-24T22:30:00Z",
+   "startTime": "2024-03-24T23:00:00Z",
+   "generation": 1710
+  }
+ ]
+}

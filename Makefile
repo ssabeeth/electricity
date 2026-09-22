@@ -24,3 +24,15 @@ fmt: ## Auto-fix lint and format
 .PHONY: test
 test: ## Unit tests (no network)
 	$(UV) run pytest -m "not network"
+
+.PHONY: test-network
+test-network: ## Smoke tests against the live APIs
+	$(UV) run pytest -m network
+
+.PHONY: ingest
+ingest: ## Ingest all sources from ELEC_HISTORY_START to today (cached, idempotent)
+	$(UV) run elec ingest
+
+.PHONY: ingest-slice
+ingest-slice: ## Ingest a 3-week development slice
+	$(UV) run elec ingest --start 2024-03-18 --end 2024-04-07

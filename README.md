@@ -83,53 +83,44 @@ project treats that as the main engineering problem.
 ## Architecture
 
 ```mermaid
-flowchart LR
-    subgraph SRC[Free public APIs]
-        EL[Elexon BMRS<br/>MID price, demand, generation,<br/>NDF + WINDFOR vintages]
+flowchart TB
+    subgraph SRC[1 · Free public APIs]
+        direction LR
+        EL[Elexon BMRS<br/>price, demand, generation,<br/>NDF + WINDFOR vintages]
         NE[NESO portal<br/>embedded wind/solar vintages]
         OM[Open-Meteo Previous Runs<br/>ICON forecasts as issued]
         CI[Carbon Intensity API]
+        EL ~~~ NE ~~~ OM ~~~ CI
     end
 
-    subgraph ING[elec ingest]
+    subgraph ING[2 · elec ingest]
+        direction LR
         RAW[(raw cache<br/>gzipped responses)] --> LAKE[(Parquet lake)]
     end
 
-    subgraph DBT[dbt · DuckDB or BigQuery]
+    subgraph DBT[3 · dbt on DuckDB or BigQuery]
+        direction LR
         STG[staging] --> ASOF[as-of joins<br/>cutoff 09:00 D-1] --> MART[mart_features<br/>fct_price_actuals]
-        PIT{{point_in_time test<br/>+ leaky canary}}
+        PIT{{point_in_time test<br/>+ leaky canary}} -. fails the build on leakage .- MART
     end
 
-    subgraph ML[Modelling · MLflow]
-        BASE[seasonal naive]
-        LGB[LightGBM P10/P50/P90<br/>+ conformal calibration]
-        BT[walk-forward backtest]
-        REG[(registry<br/>champion / challenger)]
+    subgraph ML[4 · Modelling with MLflow]
+        direction LR
+        BASE[seasonal naive<br/>baseline] --> BT[walk-forward<br/>backtest]
+        LGB[LightGBM P10/P50/P90<br/>+ conformal calibration] --> BT
+        LGB --> REG[(registry<br/>champion / challenger)]
     end
 
-    subgraph BAT[Battery]
-        LP[LP scheduler<br/>PuLP + HiGHS] --> SETTLE[settle at actual MID]
+    subgraph OUT[5 · Battery and serving]
+        direction LR
+        LP[LP schedule from P50<br/>PuLP + HiGHS] --> SETTLE[settle at<br/>actual MID] --> PQ[(Parquet outputs)]
+        PQ --> API[FastAPI] --> UI[Streamlit]
     end
 
-    subgraph SRV[Serving]
-        OUT[(Parquet outputs)] --> API[FastAPI] --> UI[Streamlit]
-    end
+    AF[[Airflow 3<br/>ingest every 3 h<br/>forecast 09:05 UK<br/>retrain weekly]]
 
-    SRC --> RAW
-    LAKE --> STG
-    PIT -. fails build on leakage .- MART
-    MART --> BASE & LGB
-    BASE & LGB --> BT
-    LGB --> REG
-    BT --> LP
-    REG -- daily forecast --> OUT
-    SETTLE --> OUT
-    BT --> OUT
-
-    AF[[Airflow 3<br/>ingest every 3h · forecast 09:05 · retrain weekly]] -.-> ING
-    AF -.-> DBT
-    AF -.-> ML
-    AF -.-> BAT
+    SRC --> ING --> DBT --> ML --> OUT
+    AF -.-> ING & DBT & ML & OUT
 ```
 
 **Daily (09:05 UK):** ingest the latest vintages → `dbt build` (a

@@ -35,7 +35,7 @@ Settlement is a separate function: schedules only ever see decision prices.
 | Strategy | Net £ | Net £/MW/yr | Share of perfect foresight | Share of gap closed | Cycles/day |
 |---|---|---|---|---|---|
 | Perfect foresight (upper bound) | £57,940 | £37,232 | 100.0% | 100.0% | 1.26 |
-| LightGBM P50 forecast | £42,128 | £27,072 | 72.7% | 71.5% | 1.19 |
+| LightGBM P50 forecast | £42,162 | £27,094 | 72.8% | 71.6% | 1.18 |
 | Seasonal naive forecast | £27,036 | £17,373 | 46.7% | 44.3% | 1.26 |
 | Fixed overnight/evening rule (lower bound) | £2,450 | £1,574 | 4.2% | 0.0% | 1.00 |
 
@@ -43,9 +43,9 @@ Settlement is a separate function: schedules only ever see decision prices.
 perfect foresight (100%).
 
 The forecast-driven battery earns **73% of the
-perfect-foresight revenue**. That is £42,128, against
+perfect-foresight revenue**. That is £42,162, against
 £27,036 when scheduling on the naive forecast. The better forecast
-is worth about **£9,698 per MW per year** on this asset, before any
+is worth about **£9,720 per MW per year** on this asset, before any
 other revenue stream.
 
 ![Cumulative revenue](figures/battery_cumulative.png)
@@ -59,25 +59,25 @@ schedule against the perfect-foresight one.
 
 | Month | Perfect foresight (upper bound) | LightGBM P50 forecast | Seasonal naive forecast | Fixed overnight/evening rule (lower bound) |
 |---|---|---|---|---|
-| 2025-03 | 2,937 | 2,073 | 1,453 | 793 |
-| 2025-04 | 3,056 | 2,070 | 1,565 | -379 |
-| 2025-05 | 2,741 | 2,025 | 1,179 | -831 |
-| 2025-06 | 4,081 | 3,083 | 1,940 | -293 |
-| 2025-07 | 1,790 | 1,066 | 475 | -799 |
-| 2025-08 | 2,673 | 1,822 | 1,016 | -430 |
-| 2025-09 | 3,632 | 2,739 | 1,897 | 840 |
-| 2025-10 | 3,526 | 2,714 | 2,151 | 2,233 |
-| 2025-11 | 2,100 | 1,417 | 1,111 | 1,256 |
-| 2025-12 | 1,483 | 1,069 | 543 | 922 |
-| 2026-01 | 1,969 | 1,088 | 262 | 804 |
-| 2026-02 | 1,375 | 864 | 536 | 617 |
-| 2026-03 | 3,680 | 2,828 | 1,448 | 1,289 |
-| 2026-04 | 4,056 | 2,787 | 1,647 | -614 |
-| 2026-05 | 2,330 | 1,631 | 1,036 | -682 |
-| 2026-06 | 4,410 | 3,469 | 2,624 | -500 |
-| 2026-07 | 3,784 | 2,982 | 1,965 | -1,413 |
-| 2026-08 | 3,821 | 2,767 | 1,899 | -779 |
-| 2026-09 | 4,493 | 3,634 | 2,289 | 417 |
+| 2025-03 | 2,937 | 2,086 | 1,453 | 793 |
+| 2025-04 | 3,056 | 2,078 | 1,565 | -379 |
+| 2025-05 | 2,741 | 1,972 | 1,179 | -831 |
+| 2025-06 | 4,081 | 2,956 | 1,940 | -293 |
+| 2025-07 | 1,790 | 1,058 | 475 | -799 |
+| 2025-08 | 2,673 | 1,929 | 1,016 | -430 |
+| 2025-09 | 3,632 | 2,711 | 1,897 | 840 |
+| 2025-10 | 3,526 | 2,727 | 2,151 | 2,233 |
+| 2025-11 | 2,100 | 1,448 | 1,111 | 1,256 |
+| 2025-12 | 1,483 | 1,080 | 543 | 922 |
+| 2026-01 | 1,969 | 1,040 | 262 | 804 |
+| 2026-02 | 1,375 | 879 | 536 | 617 |
+| 2026-03 | 3,680 | 2,845 | 1,448 | 1,289 |
+| 2026-04 | 4,056 | 2,804 | 1,647 | -614 |
+| 2026-05 | 2,330 | 1,662 | 1,036 | -682 |
+| 2026-06 | 4,410 | 3,480 | 2,624 | -500 |
+| 2026-07 | 3,784 | 3,009 | 1,965 | -1,413 |
+| 2026-08 | 3,821 | 2,791 | 1,899 | -779 |
+| 2026-09 | 4,493 | 3,604 | 2,289 | 417 |
 
 ## Caveats
 

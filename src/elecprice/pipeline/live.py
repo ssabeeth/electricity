@@ -43,8 +43,10 @@ def _paths() -> dict[str, Path]:
 
 
 def tomorrow_uk(now: datetime | None = None) -> date:
-    now = now or datetime.now(UTC)
-    return (pd.Timestamp(now).tz_convert(UK_TZ) + pd.Timedelta(days=1)).date()
+    """The UK delivery day after ``now`` (naive datetimes are taken as UTC)."""
+    ts = pd.Timestamp(now or datetime.now(UTC))
+    ts = ts.tz_localize("UTC") if ts.tzinfo is None else ts
+    return (ts.tz_convert(UK_TZ) + pd.Timedelta(days=1)).date()
 
 
 def forecast_day(delivery_date: date | None = None) -> pd.DataFrame:

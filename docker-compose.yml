@@ -1,0 +1,179 @@
+# Full stack: Airflow (api-server, scheduler, dag-processor) on Postgres,
+# MLflow tracking server + registry, FastAPI, Streamlit.
+#
+#   make up      # builds images, creates .env with random secrets, starts everything
+#
+# On first start the `elec_bootstrap` DAG ingests history, builds features,
+# backtests, registers a champion model and issues the first forecast.
+name: elecprice
+
+x-elec-env: &elec-env
+  ELEC_DATA_DIR: /data
+  ELEC_HISTORY_START: ${ELEC_HISTORY_START:-2023-09-01}
+  ELEC_CUTOFF_LOCAL: ${ELEC_CUTOFF_LOCAL:-09:00}
+  ELEC_LOG_LEVEL: ${ELEC_LOG_LEVEL:-INFO}
+  DBT_TARGET: ${DBT_TARGET:-duckdb}
+  MLFLOW_TRACKING_URI: http://mlflow:5000
+  MPLCONFIGDIR: /tmp/matplotlib
+
+x-app: &app
+  build:
+    context: .
+    dockerfile: docker/app.Dockerfile
+  image: elecprice-app:latest
+  user: "${AIRFLOW_UID:-50000}:0"
+  environment:
+    <<: *elec-env
+    HOME: /tmp
+  volumes:
+    - ${ELEC_HOST_DATA_DIR:-./data}:/data
+  restart: unless-stopped
+
+x-airflow: &airflow
+  build:
+    context: .
+    dockerfile: docker/airflow.Dockerfile
+  image: elecprice-airflow:latest
+  user: "${AIRFLOW_UID:-50000}:0"
+  environment: &airflow-env
+    <<: *elec-env
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__CORE__AUTH_MANAGER: airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${POSTGRES_PASSWORD:-airflow}@postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW_FERNET_KEY:-}
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: "false"
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__CORE__EXECUTION_API_SERVER_URL: http://airflow-apiserver:8080/execution/
+    AIRFLOW__API_AUTH__JWT_SECRET: ${AIRFLOW_JWT_SECRET:-change-me-jwt-secret}
+    AIRFLOW__API_AUTH__JWT_ISSUER: elecprice
+    AIRFLOW__API__SECRET_KEY: ${AIRFLOW_API_SECRET_KEY:-change-me-api-secret}
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: "true"
+  volumes:
+    - ${ELEC_HOST_DATA_DIR:-./data}:/data
+    - airflow-logs:/opt/airflow/logs
+  depends_on: &airflow-depends
+    postgres:
+      condition: service_healthy
+    airflow-init:
+      condition: service_completed_successfully
+  restart: unless-stopped
+
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-airflow}
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+
+  airflow-init:
+    <<: *airflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *airflow-env
+      _AIRFLOW_DB_MIGRATE: "true"
+      _AIRFLOW_WWW_USER_CREATE: "true"
+      _AIRFLOW_WWW_USER_USERNAME: ${AIRFLOW_ADMIN_USER:-admin}
+      _AIRFLOW_WWW_USER_PASSWORD: ${AIRFLOW_ADMIN_PASSWORD:-change-me}
+    # The image entrypoint runs the migration and creates the admin user first.
+    command: >-
+      bash -c "airflow pools set warehouse 1 'DuckDB warehouse: single writer'"
+    restart: "no"
+
+  airflow-apiserver:
+    <<: *airflow
+    command: api-server
+    ports:
+      - "${AIRFLOW_PORT:-8080}:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/api/v2/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  airflow-scheduler:
+    <<: *airflow
+    command: scheduler
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  airflow-dag-processor:
+    <<: *airflow
+    command: dag-processor
+    healthcheck:
+      test: ["CMD-SHELL", 'airflow jobs check --job-type DagProcessorJob --hostname "$${HOSTNAME}"']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+
+  mlflow:
+    <<: *app
+    command: >-
+      mlflow server --host 0.0.0.0 --port 5000
+      --backend-store-uri sqlite:////data/mlflow-server/mlflow.db
+      --artifacts-destination /data/mlflow-server/artifacts
+      --serve-artifacts
+      --allowed-hosts mlflow,mlflow:5000,localhost,localhost:5001,127.0.0.1,127.0.0.1:5001
+    entrypoint: ["sh", "-c", "mkdir -p /data/mlflow-server/artifacts && exec \"$$@\"", "--"]
+    ports:
+      - "${MLFLOW_PORT:-5001}:5000"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  api:
+    <<: *app
+    command: uvicorn elecprice.serving.api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "${API_PORT:-8000}:8000"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+
+  dashboard:
+    <<: *app
+    command: >-
+      streamlit run src/elecprice/serving/dashboard.py
+      --server.address 0.0.0.0 --server.port 8501 --server.headless true
+      --browser.gatherUsageStats false
+    environment:
+      <<: *elec-env
+      HOME: /tmp
+      ELEC_API_URL: http://api:8000
+    ports:
+      - "${DASHBOARD_PORT:-8501}:8501"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  postgres-data:
+  airflow-logs:

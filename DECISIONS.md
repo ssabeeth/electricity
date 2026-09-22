@@ -338,3 +338,42 @@ Historical performance comes only from the walk-forward backtest.
   read-only. The deploy guide puts it, the dashboard and Airflow behind a
   reverse proxy, with basic auth on Airflow and the option to add it to
   everything.
+
+## 2026-09-22 — Containerisation
+
+- **Two images.**
+  - `elecprice-app` (python:3.12-slim, uv, the project with the ml, dbt and
+    serve extras) runs the API, the dashboard and the MLflow server. MLflow uses
+    the same image so the server and client versions always match.
+  - `elecprice-airflow` (apache/airflow:3.3.2) carries the project in a
+    separate venv (`ELEC_BIN`), for the dependency-isolation reasons in the
+    orchestration decision.
+- **Airflow 3 topology:** LocalExecutor on Postgres 16, with the api-server,
+  scheduler and dag-processor as separate services, plus a one-shot
+  `airflow-init` that migrates the DB, creates the admin user through the FAB
+  auth manager and creates the `warehouse` pool. There is no Celery or Redis;
+  one machine is the target.
+- **`make up` from a clean clone.** It writes `.env` with random secrets and the
+  host UID, builds the images and starts everything. The one-off `elec_bootstrap`
+  DAG then ingests history, runs `dbt build`, backtests, registers a champion,
+  simulates the battery and issues the first forecast. Every step is idempotent.
+  Verified locally with Colima: all services healthy, bootstrap succeeded, the
+  daily DAG succeeded in the containers, and the API served the forecast they
+  produced.
+- **Data is a bind mount (`./data`), not a named volume.** It holds the raw cache,
+  the lake, the warehouse, the MLflow server store and the outputs. Containers
+  run as the host UID with group 0, so files stay readable and deletable on the
+  host, and the same cache serves local runs and containers.
+- **MLflow's server store is `data/mlflow-server`**, separate from the local-dev
+  sqlite store in `data/mlflow`. Local runs record artifact paths as host paths,
+  which do not exist inside containers.
+- **MLflow is published on host port 5001.** On macOS, port 5000 belongs to the
+  AirPlay Receiver (found during testing). Inside the Compose network it is
+  still `mlflow:5000`.
+- **First-start catch-up runs.** Airflow 3 creates one run for the most recent
+  past interval of each newly unpaused DAG, even with `catchup=False`. This
+  exposed a real bug: the daily forecast used the wall clock for "tomorrow", so
+  a late or retried run would forecast the wrong day, or none. Tasks now pass
+  `--as-of '{{ dag_run.run_after }}'` and the delivery day is derived from the
+  run's own time. The `warehouse` pool kept the concurrent catch-up runs from
+  contending for DuckDB.

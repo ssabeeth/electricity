@@ -97,3 +97,30 @@ api: ## Run the FastAPI service on :8000 (docs at /docs)
 .PHONY: dashboard
 dashboard: ## Run the Streamlit dashboard on :8501 (in-process API, no server needed)
 	ELEC_API_URL=$${ELEC_API_URL:-inprocess} $(UV) run streamlit run src/elecprice/serving/dashboard.py
+
+.PHONY: env
+env: ## Create .env with random secrets if missing
+	./scripts/init_env.sh
+
+.PHONY: up
+up: env ## Build and start the full stack (Airflow, MLflow, API, dashboard)
+	docker compose up -d --build
+	@echo ""
+	@echo "  Airflow    http://localhost:$${AIRFLOW_PORT:-8080}  (admin / see .env)"
+	@echo "  MLflow     http://localhost:$${MLFLOW_PORT:-5001}"
+	@echo "  API        http://localhost:$${API_PORT:-8000}/docs"
+	@echo "  Dashboard  http://localhost:$${DASHBOARD_PORT:-8501}"
+	@echo ""
+	@echo "  First start: the elec_bootstrap DAG builds everything (about 15 min on a clean clone)."
+
+.PHONY: down
+down: ## Stop the stack (data in ./data and volumes is kept)
+	docker compose down
+
+.PHONY: ps
+ps: ## Show stack status
+	docker compose ps
+
+.PHONY: logs
+logs: ## Tail stack logs
+	docker compose logs -f --tail=100

@@ -74,3 +74,18 @@ jobs:
             --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-3.12.txt"
       - name: DAG integrity tests
         run: .venv-airflow/bin/python -m pytest -q -p no:cacheprovider tests/airflow
+
+  images:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4.4.1
+      - name: Validate the Compose file
+        run: cp .env.example .env && docker compose config --quiet
+      - name: Build the app and Airflow images
+        run: docker compose build
+      - name: Smoke-test the images
+        run: |
+          docker run --rm elecprice-app:latest elec --version
+          docker run --rm elecprice-app:latest python -c "import lightgbm, duckdb, mlflow, fastapi, streamlit"
+          docker run --rm --entrypoint bash elecprice-airflow:latest -c '$ELEC_BIN --version && airflow version'

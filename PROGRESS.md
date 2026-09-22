@@ -13,8 +13,8 @@ _No blockers._ The remote `origin` is `https://github.com/ssabeeth/electricity.g
 | 5. Battery simulation | done | `v0.5-battery` |
 | 6. Orchestration | done | `v0.6-orchestration` |
 | 7. Serving | done | `v0.7-serving` |
-| 8. Containerise | next | |
-| 9. Deployment prep | | |
+| 8. Containerise | done | `v0.8-containerise` |
+| 9. Deployment prep | next | |
 | 10. README | | |
 
 ## Log
@@ -237,3 +237,35 @@ Done:
   dashboard tab.
 - The in-app browser could not open localhost here, so the visual check was
   done via Streamlit `AppTest` plus HTTP health checks instead of screenshots.
+
+### Phase 8 — Containerise (2026-09-22)
+
+Done:
+- `docker/app.Dockerfile` (API, dashboard, MLflow server, CLI) and
+  `docker/airflow.Dockerfile` (Airflow 3.3.2 plus the project in an isolated
+  venv).
+- `docker-compose.yml`: Postgres, airflow-init, the Airflow api-server,
+  scheduler and dag-processor, MLflow, the API and the dashboard, with health
+  checks on every service.
+- `make up` creates `.env` with random secrets and the host UID, then builds and
+  starts the stack. A new `elec_bootstrap` DAG (runs once) builds everything
+  from a clean clone. `make down`, `make ps` and `make logs` manage the stack.
+- The `warehouse` Airflow pool (1 slot) serialises every task that opens DuckDB.
+  A DAG test enforces it.
+- Tested for real with Colima (Docker 29.5, Compose 5.5):
+  - all 7 long-running services are healthy;
+  - the pool and admin user were created;
+  - `elec_bootstrap` succeeded, with the champion registered in the
+    containerised MLflow;
+  - the catch-up daily forecast run succeeded after the `--as-of` fix;
+  - the API served the containers' forecast, and the dashboard and Airflow UI
+    returned 200.
+- CI gained an `images` job: compose validation, build of both images, and
+  smoke tests.
+- Found and fixed during testing:
+  - macOS AirPlay occupies port 5000, so MLflow is now on host port 5001;
+  - the daily DAG forecast the wall-clock "tomorrow" rather than the run's day;
+  - the Airflow image's Python is at `/usr/python/bin`.
+
+Environment note: Docker was installed via Homebrew (`colima`, `docker`,
+`docker-compose`, `docker-buildx`). Colima is left stopped.

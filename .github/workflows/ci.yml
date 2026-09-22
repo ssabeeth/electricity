@@ -30,3 +30,29 @@ jobs:
           enable-cache: true
       - run: uv sync --frozen --all-extras
       - run: uv run --no-sync pytest -m "not network" --cov=elecprice --cov-report=term
+
+  dbt:
+    runs-on: ubuntu-latest
+    env:
+      DBT_PROFILES_DIR: ${{ github.workspace }}/dbt
+      DBT_TARGET: duckdb
+      ELEC_LAKE_DIR: ${{ github.workspace }}/tests/fixtures/lake
+      ELEC_DUCKDB_PATH: ${{ runner.temp }}/ci.duckdb
+      FIXTURE_VARS: '{"feature_start_date": "2024-03-08", "feature_end_date": "2024-04-07"}'
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+      - run: uv sync --frozen --extra dbt
+      - name: dbt build on sample data (seeds, snapshots, models, tests, unit tests)
+        working-directory: dbt
+        run: uv run --no-sync dbt build --vars "$FIXTURE_VARS"
+      - name: point-in-time canary must fail
+        working-directory: dbt
+        run: |
+          if uv run --no-sync dbt build --select pit_canary_leaky \
+               --vars '{"feature_start_date": "2024-03-08", "feature_end_date": "2024-04-07", "pit_canary": true}'; then
+            echo "::error::leaky canary passed the point_in_time test"; exit 1
+          fi
+          echo "canary correctly rejected"

@@ -36,3 +36,20 @@ ingest: ## Ingest all sources from ELEC_HISTORY_START to today (cached, idempote
 .PHONY: ingest-slice
 ingest-slice: ## Ingest a 3-week development slice
 	$(UV) run elec ingest --start 2024-03-18 --end 2024-04-07
+
+.PHONY: dbt-build
+dbt-build: ## Build the dbt project (seeds, snapshots, models, tests) on the local lake
+	$(UV) run elec dbt build
+
+.PHONY: dbt-freshness
+dbt-freshness: ## Check source freshness
+	$(UV) run elec dbt source freshness
+
+.PHONY: dbt-docs
+dbt-docs: ## Generate and serve dbt docs
+	$(UV) run elec dbt docs generate
+	$(UV) run elec dbt docs serve --port 8081
+
+.PHONY: fixtures
+fixtures: ## Regenerate the committed sample lake under tests/fixtures/lake
+	$(UV) run python scripts/make_fixtures.py

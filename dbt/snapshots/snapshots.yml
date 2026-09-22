@@ -1,0 +1,26 @@
+version: 2
+
+# Elexon revises outturn data after first publication. These snapshots keep a
+# type-2 history of every value we have seen, so a revision is visible (and a
+# backtest can be re-run against first-published values if needed).
+snapshots:
+  - name: snap_market_index
+    relation: ref('stg_elexon__market_index')
+    config:
+      unique_key: [settlement_date, settlement_period]
+      strategy: check
+      check_cols: [reported_price_gbp_mwh, volume_mwh]
+
+  - name: snap_demand_outturn
+    relation: ref('stg_elexon__demand_outturn')
+    config:
+      unique_key: [settlement_date, settlement_period]
+      strategy: check
+      check_cols: [indo_mw, itsdo_mw]
+
+  - name: snap_generation_by_fuel
+    relation: ref('stg_elexon__generation_by_fuel')
+    config:
+      unique_key: [settlement_date, settlement_period, fuel_type]
+      strategy: check
+      check_cols: [generation_mw]

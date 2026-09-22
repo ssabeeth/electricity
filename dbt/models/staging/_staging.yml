@@ -1,0 +1,132 @@
+version: 2
+
+models:
+  - name: stg_elexon__market_index
+    description: Market Index Price (APXMIDP), deduplicated. Zero-volume periods have a null price.
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: [settlement_date, settlement_period]
+    columns:
+      - name: settlement_date
+        data_tests: [not_null]
+      - name: settlement_period
+        data_tests:
+          - not_null
+          - accepted_range: {arguments: {min_value: 1, max_value: 50}}
+      - name: start_time_utc
+        data_tests: [not_null, unique]
+      - name: price_gbp_mwh
+        description: £/MWh. Null when no volume traded.
+        data_tests:
+          - accepted_range: {arguments: {min_value: -1000, max_value: 5000}}
+      - name: volume_mwh
+        data_tests:
+          - not_null
+          - accepted_range: {arguments: {min_value: 0}}
+
+  - name: stg_elexon__demand_outturn
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: [settlement_date, settlement_period]
+    columns:
+      - name: published_at
+        data_tests: [not_null]
+      - name: indo_mw
+        data_tests:
+          - accepted_range: {arguments: {min_value: 5000, max_value: 70000}}
+
+  - name: stg_elexon__generation_by_fuel
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: [settlement_date, settlement_period, fuel_type]
+    columns:
+      - name: fuel_type
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('fuel_types')
+                field: fuel_type
+              config:
+                severity: warn
+      - name: published_at
+        data_tests: [not_null]
+
+  - name: stg_elexon__demand_forecast
+    description: NDF vintages. One row per (published_at, settlement period).
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: [published_at, settlement_date, settlement_period]
+    columns:
+      - name: published_at
+        data_tests: [not_null]
+      - name: demand_mw
+        data_tests:
+          - not_null
+          - accepted_range: {arguments: {min_value: 5000, max_value: 70000}}
+
+  - name: stg_elexon__wind_forecast
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: [published_at, valid_hour_utc]
+    columns:
+      - name: published_at
+        data_tests: [not_null]
+      - name: wind_mw
+        data_tests:
+          - accepted_range: {arguments: {min_value: 0, max_value: 40000}}
+
+  - name: stg_neso__embedded_forecast
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: [issued_at, settlement_date, settlement_period]
+    columns:
+      - name: issued_at
+        description: UTC. Converted from the source's UK-local timestamp.
+        data_tests: [not_null]
+      - name: forecast_time_basis
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [uk_local, utc_assumed]
+      - name: embedded_solar_mw
+        data_tests:
+          - accepted_range: {arguments: {min_value: 0}}
+
+  - name: stg_openmeteo__weather_forecast
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: [location_id, valid_hour_utc, lead_days]
+    columns:
+      - name: location_id
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('weather_locations')
+                field: location_id
+      - name: available_at
+        data_tests: [not_null]
+      - name: lead_days
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2]
+      - name: wind_speed_100m_ms
+        data_tests:
+          - accepted_range: {arguments: {min_value: 0, max_value: 80}}
+
+  - name: stg_carbon__intensity
+    columns:
+      - name: start_time_utc
+        data_tests: [not_null, unique]
+      - name: intensity_actual_gco2_kwh
+        data_tests:
+          - accepted_range: {arguments: {min_value: 0, max_value: 1000}}

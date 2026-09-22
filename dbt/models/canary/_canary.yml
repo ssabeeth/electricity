@@ -1,0 +1,11 @@
+version: 2
+
+models:
+  - name: pit_canary_leaky
+    description: Deliberately leaky model; its point_in_time test is expected to FAIL.
+    data_tests:
+      - point_in_time:
+          name: pit_canary_leaky
+          arguments:
+            cutoff_column: cutoff_utc
+            available_at_columns: [ndf_published_at]

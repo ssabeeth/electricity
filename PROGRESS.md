@@ -1,6 +1,26 @@
 # Progress
 
-_No blockers._ The remote `origin` is `https://github.com/ssabeeth/electricity.git`.
+**Status: all ten phases complete and merged to `main` (tag `v1.0`). No blockers.**
+The remote `origin` is `https://github.com/ssabeeth/electricity.git`.
+
+**What only the owner can do.** Each of these costs money or needs the owner's
+credentials, and none has been done:
+
+1. **Deploy to a VPS.** Provision a 4-8 GB Ubuntu 24.04 machine, point DNS at
+   it, and follow `docs/deploy_vps.md`. The configuration is validated in CI;
+   start it with `make prod-up`.
+2. **BigQuery (optional).** Create a GCP project and a service account with
+   BigQuery Data Editor and Job User roles, then follow `docs/bigquery.md`. The
+   dbt project already compiles to valid BigQuery SQL offline; that is tested
+   in CI.
+3. **Rotate the local `.env`.** It was generated with random secrets during
+   testing and is git-ignored. Delete it before sharing the machine;
+   `make env` regenerates it.
+
+**Local machine state.** Docker was installed via Homebrew (`colima`, `docker`,
+`docker-compose`, `docker-buildx`), plus `libomp` for LightGBM and `uv`. Colima
+is stopped. `data/` (about 70 MB) holds the full cached history, the warehouse,
+the local MLflow store and the outputs.
 
 ## Phase status
 
@@ -15,7 +35,7 @@ _No blockers._ The remote `origin` is `https://github.com/ssabeeth/electricity.g
 | 7. Serving | done | `v0.7-serving` |
 | 8. Containerise | done | `v0.8-containerise` |
 | 9. Deployment prep | done | `v0.9-deployment-prep` |
-| 10. README | next | |
+| 10. README | done | `v1.0` |
 
 ## Log
 
@@ -301,3 +321,31 @@ Owner actions (these cost money or need credentials):
    `docs/deploy_vps.md`.
 2. BigQuery: create a GCP project and service account and follow
    `docs/bigquery.md`.
+
+### Phase 10 — README (2026-09-22)
+
+Done:
+- The README covers:
+  - the headline results (forecast and battery £) with figures;
+  - "why the numbers can be trusted" (seven correctness guarantees);
+  - a Mermaid architecture diagram;
+  - quickstarts for Docker and local development;
+  - the repository layout and the data-source table;
+  - a decisions table with one line per tool;
+  - the forecast-vs-observed weather discussion with measured leakage;
+  - testing and CI, known limitations, and further reading.
+- New leakage experiment (`scripts/leakage_experiment.py` ->
+  `reports/leakage_experiment.md`). Weather issued after the cutoff flatters
+  pinball by 0.1%, observed weather by 1.3%, and actual outturn by 9.9%.
+- Regenerated `reports/backtest.md` and `reports/battery.md` from the final
+  outputs. The weekly-retrain run during Docker testing had refreshed them, so
+  the README, reports, API and dashboard now show the same numbers.
+
+Final headline numbers:
+- **Backtest** (19 folds, 27,344 half-hours): LightGBM pinball 5.05 against the
+  baseline's 9.79 (48.4% skill; 48.7% on hold-out folds). P50 MAE £15.48
+  against £27.47. P10-P90 coverage 78.7% (nominal 80%).
+- **Battery** (568 days, 1 MW / 2 MWh): the forecast-driven schedule earns
+  £42,162, 72.8% of perfect foresight's £57,940. The naive-forecast schedule
+  earns £27,036 (46.7%), and the fixed rule £2,450. The better forecast is
+  worth about £9.7k per MW per year.

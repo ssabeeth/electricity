@@ -413,3 +413,22 @@ but no VPS was provisioned because that costs money.
 
 Runtime behaviour on BigQuery remains unverified until the owner creates
 credentials (docs/bigquery.md).
+
+## 2026-09-22 — Quantifying leakage instead of asserting it
+
+`scripts/leakage_experiment.py` reruns the identical walk-forward backtest on
+four feature sets that differ only in when their inputs were knowable. Results
+(pinball; apparent improvement over honest):
+
+| Feature set | Pinball | Apparent improvement |
+|---|---|---|
+| Honest | 5.052 | — |
+| Weather forecast issued after the cutoff | 5.047 | +0.1% |
+| Observed weather (reanalysis) | 4.987 | +1.3% |
+| Actual demand and wind outturn instead of NESO forecasts | 4.555 | +9.9% |
+
+The README reports this as it is. For this feature set, weather leakage is
+small, because NESO's forecasts carry the weather signal. The dangerous leak is
+realised system outturn, which sits in the same Elexon API as the forecasts. The
+observed-weather archive was downloaded for this experiment only, cached under
+`data/raw/experiments/`, and is not an input to any pipeline model.

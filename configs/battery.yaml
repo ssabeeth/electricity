@@ -1,0 +1,16 @@
+# Battery asset and market-access assumptions for the arbitrage simulation.
+# All are parameters; see DECISIONS.md for why each value was chosen.
+
+power_mw: 1.0                  # max charge / discharge rate at the grid connection
+energy_mwh: 2.0                # usable energy capacity (2-hour battery)
+round_trip_efficiency: 0.90    # split evenly: charge and discharge each sqrt(0.9)
+soc_min_frac: 0.0              # usable window as a fraction of energy_mwh
+soc_max_frac: 1.0
+initial_soc_frac: 0.0          # every day starts and ends empty (daily-cycle convention)
+max_cycles_per_day: 1.5        # full-equivalent cycles: energy out of storage / energy_mwh
+degradation_cost_gbp_per_mwh: 10.0  # charged per MWh discharged to the grid
+
+# Price-blind lower-bound strategy: charge in the night window, discharge in the
+# evening-peak window (UK local time, [start, end) in hours).
+naive_charge_window: [1.0, 5.0]
+naive_discharge_window: [16.5, 19.5]

@@ -10,8 +10,8 @@ _No blockers._ The remote `origin` is `https://github.com/ssabeeth/electricity.g
 | 2. Ingestion | done | `v0.2-ingestion` |
 | 3. dbt | done | `v0.3-dbt` |
 | 4. Modelling | done | `v0.4-modelling` |
-| 5. Battery simulation | next | |
-| 6. Orchestration | | |
+| 5. Battery simulation | done | `v0.5-battery` |
+| 6. Orchestration | next | |
 | 7. Serving | | |
 | 8. Containerise | | |
 | 9. Deployment prep | | |
@@ -149,3 +149,36 @@ Observations for the README:
 - The worst month is 2026-09. Prices jumped to a new level (weekday peaks above
   £200) with windy weekends near £0. Without a gas input the model adapts with a
   lag, and coverage on the latest 28-day fold is 58%.
+
+### Phase 5 — Battery simulation (2026-09-22)
+
+Done:
+- `elecprice.battery`:
+  - the LP optimiser (HiGHS, with a MILP fallback against simultaneous
+    charge/discharge);
+  - settlement at actual prices;
+  - four strategies;
+  - a parallel simulation over the backtest forecasts;
+  - `reports/battery.md` with a cumulative £ chart and an example-day chart.
+- Results for a 1 MW / 2 MWh battery over 568 settled out-of-sample days
+  (2025-03-01 to 2026-09-21):
+
+  | strategy | net £ | £/MW/yr | share of perfect foresight |
+  |---|---|---|---|
+  | perfect foresight (upper) | 57,940 | 37,232 | 100% |
+  | LightGBM P50 forecast | 42,128 | 27,072 | 72.7% |
+  | seasonal naive forecast | 27,036 | 17,373 | 46.7% |
+  | fixed overnight/evening rule (lower) | 2,450 | 1,574 | 4.2% |
+
+  The better forecast is worth about £9.7k per MW per year over the naive
+  forecast on the same asset.
+- CLI `elec simulate`, which logs to the MLflow experiment `elecprice-battery`.
+- 14 tests:
+  - physics (SoC dynamics, bounds, no simultaneous charge/discharge);
+  - an analytic optimum on a two-price day;
+  - flat prices mean no trading;
+  - the cycle limit;
+  - perfect foresight dominates on random days;
+  - forecast schedules don't change when actual prices change (no leakage);
+  - fixed-rule windows and determinism;
+  - an end-to-end simulate/summarise run.

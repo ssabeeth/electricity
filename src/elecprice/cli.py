@@ -7,6 +7,7 @@ run exactly the same code path.
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from datetime import date
 
@@ -79,6 +80,37 @@ def cmd_train(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_simulate(args: argparse.Namespace) -> int:
+    from elecprice.battery import report
+    from elecprice.battery.simulate import battery_dir, run
+    from elecprice.config import REPO_ROOT
+
+    summary = run(workers=args.workers)
+    report.write_report(
+        battery_dir(), REPO_ROOT / "reports" / "battery.md", REPO_ROOT / "reports" / "figures"
+    )
+    if not args.no_mlflow:
+        import mlflow
+
+        from elecprice.modelling import tracking
+
+        tracking.configure("elecprice-battery")
+        with mlflow.start_run(run_name="battery-simulation"):
+            mlflow.log_params(json.loads((battery_dir() / "params.json").read_text()))
+            for _, r in summary.iterrows():
+                mlflow.log_metrics(
+                    {
+                        f"{r['strategy']}_net_gbp": float(r["net_gbp"]),
+                        f"{r['strategy']}_net_gbp_per_mw_year": float(r["net_gbp_per_mw_year"]),
+                        f"{r['strategy']}_capture_vs_perfect": float(r["capture_vs_perfect"]),
+                    }
+                )
+            mlflow.log_artifact(str(REPO_ROOT / "reports" / "battery.md"))
+            mlflow.log_artifact(str(battery_dir() / "summary.csv"))
+    print(summary.round(3).to_string(index=False))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="elec", description=__doc__)
     parser.add_argument("--version", action="version", version=f"elecprice {__version__}")
@@ -116,6 +148,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--eval-days", type=int, default=28, help="latest fold length for metrics")
     p.add_argument("--alias", default=None, help="registry alias to set, e.g. champion")
     p.set_defaults(handler=cmd_train)
+
+    p = sub.add_parser("simulate", help="Battery arbitrage simulation over backtest forecasts")
+    p.add_argument("--workers", type=int, default=4)
+    p.add_argument("--no-mlflow", action="store_true")
+    p.set_defaults(handler=cmd_simulate)
 
     p = sub.add_parser("dbt", help="Run dbt with project paths wired in (e.g. elec dbt build)")
     p.add_argument("dbt_args", nargs=argparse.REMAINDER, help="arguments passed to dbt")

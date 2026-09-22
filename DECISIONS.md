@@ -220,3 +220,44 @@ interval is half as wide.
 LightGBM boosters and calibration shifts as artifacts. They are registered as
 `elecprice-lgbm-quantile`, and production is the `champion` alias (MLflow
 stages are deprecated).
+
+## 2026-09-22 — Battery simulation
+
+**Asset parameters** (`configs/battery.yaml`, all adjustable):
+
+- **Size:** 1 MW / 2 MWh, the brief's asset and a typical GB 2-hour battery.
+- **Round-trip efficiency:** 90%, split as √0.9 on charge and √0.9 on discharge.
+- **Cycle limit:** 1.5 full-equivalent cycles per day, measured on energy out of
+  storage. That is within typical warranty terms (about 1-2 cycles per day).
+- **Degradation cost:** £10 per MWh discharged. This is linear in throughput.
+  Published estimates for Li-ion are roughly £5-20/MWh; the value sets the
+  minimum spread worth trading.
+
+**State of charge resets daily, starting and ending empty.** Each delivery day is
+scheduled independently, matching one day-ahead decision per day. I first set
+the daily start at 50%. That limits a price-blind rule to 1 MWh a day, which made
+the lower bound a strawman. Starting empty is the common convention in daily
+arbitrage studies and lets every strategy run a full cycle.
+
+**Optimiser:** an LP in PuLP, solved with HiGHS in-process via `highspy`.
+PuLP 3 deprecates its bundled CBC, and HiGHS takes about 1.7 ms per solve
+against CBC's 50 ms. If the LP solution charges and discharges in the same
+period, which a real battery cannot do, the day is re-solved as a MILP with one
+binary mode variable per period.
+
+**Leakage structure:** `decision_inputs()` gives each strategy its decision
+prices, and `settle()` alone sees actual prices. A unit test checks that
+changing actual prices does not change a forecast-driven schedule. The forecasts
+are the walk-forward backtest predictions, so each day's schedule used a model
+trained only on data available at that point.
+
+**Bounds:**
+
+- **Upper bound:** perfect foresight, the same LP run on actual prices.
+- **Lower bound:** a fixed rule that charges from 01:00 and discharges from
+  16:30 UK time at full power. It is written as explicit logic, not as an LP.
+  An LP version had many equally optimal schedules inside each window, and its
+  result changed from £3.2k to £15.4k when the solver changed. That is a
+  tie-breaking artefact, not a property of the strategy.
+- **Middle reference:** the seasonal naive forecast fed through the same LP. It
+  isolates the value of the better forecast from the value of optimising at all.

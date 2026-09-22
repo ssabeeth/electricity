@@ -65,3 +65,7 @@ train: ## Train on all data and register as the champion model
 .PHONY: mlflow-ui
 mlflow-ui: ## Local MLflow UI on the sqlite store
 	$(UV) run mlflow ui --backend-store-uri sqlite:///data/mlflow/mlflow.db --port 5000
+
+.PHONY: simulate
+simulate: ## Battery arbitrage simulation over the backtest forecasts + reports/battery.md
+	$(UV) run elec simulate

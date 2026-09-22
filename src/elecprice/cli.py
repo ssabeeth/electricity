@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date
+from datetime import date, timedelta
 
 from elecprice import __version__
 from elecprice.config import get_settings
@@ -26,7 +26,10 @@ def cmd_ingest(args: argparse.Namespace) -> int:
         for key, ds in REGISTRY.items():
             print(f"{key:30s} chunk={ds.chunk_days:>2}d  {ds.description}")
         return 0
-    start = args.start or get_settings().history_start
+    if args.days is not None:
+        start = date.today() - timedelta(days=args.days)
+    else:
+        start = args.start or get_settings().history_start
     reports = ingest(
         args.datasets, start, args.end, force=args.force, refresh_days=args.refresh_days
     )
@@ -75,7 +78,8 @@ def cmd_train(args: argparse.Namespace) -> int:
         "eval_fold": f"{res['fold'][0]}..{res['fold'][1]}",
         "trained_through": str(res["frame"]["settlement_date"].max().date()),
     }
-    version = register_model(model, res["config"], metrics, tags, alias=args.alias)
+    sample = res["frame"].drop(columns=["price_gbp_mwh"]).tail(48)
+    version = register_model(model, res["config"], metrics, tags, alias=args.alias, sample=sample)
     print(f"registered version {version} (alias={args.alias}) {metrics}")
     return 0
 
@@ -111,6 +115,37 @@ def cmd_simulate(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_forecast(args: argparse.Namespace) -> int:
+    from elecprice.pipeline.live import forecast_day
+
+    out = forecast_day(args.date)
+    lg = out[out["model"] == "lgbm_quantile"]
+    print(lg[["settlement_period", "p10", "p50", "p90"]].round(1).to_string(index=False))
+    return 0
+
+
+def cmd_schedule(args: argparse.Namespace) -> int:
+    from elecprice.pipeline.live import schedule_day
+
+    schedule_day(args.date)
+    return 0
+
+
+def cmd_monitor(args: argparse.Namespace) -> int:
+    from elecprice.pipeline.live import monitor
+
+    print(monitor())
+    return 0
+
+
+def cmd_retrain(args: argparse.Namespace) -> int:
+    from elecprice.pipeline.retrain import retrain
+
+    result = retrain(min_eval_days=args.min_eval_days)
+    print(json.dumps(result, indent=2, default=str))
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="elec", description=__doc__)
     parser.add_argument("--version", action="version", version=f"elecprice {__version__}")
@@ -123,6 +158,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="source or source/name (default: all). e.g. elexon, elexon/mid",
     )
     p.add_argument("--start", type=_date, help="first date (default ELEC_HISTORY_START)")
+    p.add_argument("--days", type=int, help="ingest only the last N days (overrides --start)")
     p.add_argument("--end", type=_date, help="last date (default today + look-ahead)")
     p.add_argument("--force", action="store_true", help="re-fetch even settled chunks")
     p.add_argument(
@@ -153,6 +189,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--workers", type=int, default=4)
     p.add_argument("--no-mlflow", action="store_true")
     p.set_defaults(handler=cmd_simulate)
+
+    p = sub.add_parser("forecast", help="Forecast a delivery day with the champion model")
+    p.add_argument("--date", type=_date, help="delivery date (default: tomorrow, UK)")
+    p.set_defaults(handler=cmd_forecast)
+
+    p = sub.add_parser("schedule", help="Battery schedule for a delivery day from its forecast")
+    p.add_argument("--date", type=_date, help="delivery date (default: tomorrow, UK)")
+    p.set_defaults(handler=cmd_schedule)
+
+    p = sub.add_parser("monitor", help="Settle live forecasts and schedules against actuals")
+    p.set_defaults(handler=cmd_monitor)
+
+    p = sub.add_parser("retrain", help="Weekly champion/challenger retrain and promotion")
+    p.add_argument("--min-eval-days", type=int, default=5)
+    p.set_defaults(handler=cmd_retrain)
 
     p = sub.add_parser("dbt", help="Run dbt with project paths wired in (e.g. elec dbt build)")
     p.add_argument("dbt_args", nargs=argparse.REMAINDER, help="arguments passed to dbt")

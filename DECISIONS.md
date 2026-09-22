@@ -261,3 +261,59 @@ trained only on data available at that point.
   tie-breaking artefact, not a property of the strategy.
 - **Middle reference:** the seasonal naive forecast fed through the same LP. It
   isolates the value of the better forecast from the value of optimising at all.
+
+## 2026-09-22 — Orchestration
+
+**Airflow tasks shell out to the `elec` CLI in a separate virtualenv.** Airflow
+pins hundreds of dependencies through its constraints file. Installing
+LightGBM, dbt and MLflow alongside it invites resolver conflicts. The Airflow
+image therefore gets the project installed in its own venv (`ELEC_BIN`), and
+DAGs use `BashOperator` to call the same commands a developer runs (`make daily`
+is the daily DAG). Rejected: installing everything into Airflow's environment
+(fragile) and `DockerOperator` (needs the Docker socket inside Airflow, which is
+heavier and a security concern on a small VPS). DAG integrity tests run in CI
+against real Airflow 3.3 in its own venv.
+
+**Three DAGs, scheduled in UK local time:**
+
+| DAG | Schedule | Steps |
+|---|---|---|
+| `elec_ingest` | every 3 h | rolling 7-day ingest, then source freshness |
+| `elec_daily_forecast` | 09:05 daily | ingest latest, dbt build (point-in-time tests), forecast D+1, battery schedule, settle past days |
+| `elec_weekly_retrain` | Sunday 06:00 | ingest, dbt build, champion/challenger retrain, backtest refresh, battery simulation refresh |
+
+Cron is evaluated in Europe/London, so the daily run tracks 09:05 local time
+across clock changes. If a point-in-time test fails, `dbt build` fails and no
+forecast is issued.
+
+**Champion/challenger with a one-week lag.** The brief says a retrain is
+promoted only if it beats production on the latest fold. Two naive
+interpretations fail:
+
+- Scoring the current champion on a fold it was trained on favours it
+  (in-sample).
+- Refitting both recipes on the same window can never show the benefit of new
+  data, because the same recipe on the same data gives the same model.
+
+Instead, each week's model (fitted on all complete days) is registered as
+`challenger`. The following week, challenger and champion are scored on the
+settled days after both models' training data ended. That fold is
+out-of-sample for both, and the challenger has one more week of data. The
+challenger is promoted only if its mean pinball loss is strictly lower, over at
+least 5 days of periods. Ties keep production. Every decision is logged to the
+MLflow experiment `elecprice-retrain`. The pure rule (`decide`) is unit tested,
+and the full flow is tested end to end on the fixture warehouse.
+
+**Models train on complete days only.** The partially settled current day is
+excluded, so a model's `trained_through` tag is an honest boundary for its
+out-of-sample fold.
+
+**Serving outputs are Parquet files, not DuckDB tables.** DuckDB allows one
+writer process, and Airflow writes while the API reads. Pipeline outputs
+(forecasts, schedules, live metrics, backtest and simulation results) are small
+Parquet files written atomically with world-readable permissions (containers run
+as different users). The API reads only these, never the warehouse.
+
+**No back-filled "live" history.** Scoring past days with today's champion
+would be in-sample and flattering. Live monitoring starts at deployment.
+Historical performance comes only from the walk-forward backtest.

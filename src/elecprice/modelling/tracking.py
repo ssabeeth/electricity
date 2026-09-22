@@ -55,15 +55,27 @@ class QuantileForecaster(mlflow.pyfunc.PythonModel):
         return self.model.predict(add_derived_features(model_input))
 
 
-def log_quantile_model(model: QuantileLGBM, name: str = "model") -> str:
-    """Log ``model`` as a pyfunc under the active run; returns the model URI."""
+def log_quantile_model(
+    model: QuantileLGBM, sample: pd.DataFrame | None = None, name: str = "model"
+) -> str:
+    """Log ``model`` as a pyfunc (models-from-code) under the active run.
+
+    ``sample`` (a few mart_features rows) is used to record the signature.
+    Returns the model URI.
+    """
+    signature = None
+    if sample is not None:
+        from mlflow.models import infer_signature
+
+        signature = infer_signature(sample, model.predict(add_derived_features(sample)))
     with tempfile.TemporaryDirectory() as tmp:
         model_dir = Path(tmp) / "model_dir"
         save_model(model, model_dir)
         info = mlflow.pyfunc.log_model(
             name=name,
-            python_model=QuantileForecaster(),
+            python_model=str(Path(__file__).with_name("pyfunc_model.py")),
             artifacts={"model_dir": str(model_dir)},
+            signature=signature,
         )
     return info.model_uri
 

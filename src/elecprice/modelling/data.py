@@ -136,3 +136,14 @@ def load_frame(
         df = con.sql(sql).df()
     df["settlement_date"] = pd.to_datetime(df["settlement_date"])
     return add_derived_features(df)
+
+
+def last_complete_day(df: pd.DataFrame, min_share: float = 0.9) -> pd.Timestamp:
+    """Latest delivery day with (almost) every period's price known."""
+    share = df.groupby("settlement_date")[TARGET].apply(lambda s: s.notna().mean())
+    return share[share >= min_share].index.max()
+
+
+def complete_days(df: pd.DataFrame) -> pd.DataFrame:
+    """Drop partially settled trailing days (e.g. today) before training."""
+    return df[df["settlement_date"] <= last_complete_day(df)]

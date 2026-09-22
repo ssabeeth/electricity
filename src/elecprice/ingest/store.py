@@ -99,6 +99,7 @@ def _atomic_write_bytes(path: Path, data: bytes) -> None:
     try:
         with os.fdopen(fd, "wb") as fh:
             fh.write(data)
+        os.chmod(tmp, 0o644)  # mkstemp creates 0600; other containers must read it
         os.replace(tmp, path)
     except BaseException:
         Path(tmp).unlink(missing_ok=True)
@@ -134,6 +135,7 @@ class ChunkStore:
         os.close(fd)
         try:
             df.to_parquet(tmp, index=False)
+            os.chmod(tmp, 0o644)
             os.replace(tmp, path)
         except BaseException:
             Path(tmp).unlink(missing_ok=True)

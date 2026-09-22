@@ -56,3 +56,21 @@ jobs:
             echo "::error::leaky canary passed the point_in_time test"; exit 1
           fi
           echo "canary correctly rejected"
+
+  airflow:
+    runs-on: ubuntu-latest
+    env:
+      AIRFLOW_VERSION: "3.3.2"
+      AIRFLOW_HOME: /tmp/airflow_home
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+      - name: Install Airflow in its own environment (as in the Airflow image)
+        run: |
+          uv venv .venv-airflow --python 3.12
+          uv pip install --python .venv-airflow/bin/python "apache-airflow==${AIRFLOW_VERSION}" pytest \
+            --constraint "https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-3.12.txt"
+      - name: DAG integrity tests
+        run: .venv-airflow/bin/python -m pytest -q -p no:cacheprovider tests/airflow

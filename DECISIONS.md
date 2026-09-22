@@ -133,3 +133,38 @@ file sits next to it, and dbt reads those files directly. Chunks older than
 sources back-fill them. This keeps ingestion idempotent and the warehouse
 rebuildable from files alone, with no database state to migrate. The same
 Parquet files can be loaded into BigQuery.
+
+## 2026-09-22 — Point-in-time feature design in dbt
+
+- **As-of joins with window functions, not `ASOF JOIN`.** Each forecast source is
+  joined to the settlement calendar on the target period, with
+  `issued_at <= cutoff_utc`, keeping the newest match via
+  `row_number() ... = 1`. DuckDB's `ASOF JOIN` would be terser, but this form runs
+  unchanged on BigQuery.
+- **Every feature group carries its availability timestamp.** These are
+  `ndf_published_at`, `windfor_published_at`, `emb_issued_at`,
+  `wx_available_at`, `price_available_at` and `system_available_at`. The generic
+  `point_in_time` test fails if any is later than `cutoff_utc`. It also fails if
+  a feature is non-null while its timestamp is null, so a forgotten timestamp
+  cannot silently disable the guard.
+- **The guard is proven, not assumed.** `pit_canary_leaky` reproduces a
+  realistic bug: the cutoff is off by three hours. CI asserts that the test
+  rejects it. dbt unit tests pin the as-of behaviour on hand-written vintages.
+- **Target kept out of the feature mart.** Prices live in `fct_price_actuals`.
+  The mart contains only what the model may see, so the PIT test covers all of
+  it.
+- **MID availability lag: 60 minutes after the period ends.** MID rows have no
+  publish time. Elexon publishes within minutes; 60 is conservative. The same
+  lag applies to carbon intensity actuals. Both are dbt vars.
+- **Lags matched on UK clock time.** "Same half-hour last week" joins on
+  local start time, so the naive baseline and the price lags stay aligned across
+  clock changes. On the autumn change the repeated hour matches twice; the later
+  match is kept.
+- **Hourly sources.** WINDFOR and weather are hourly; both half-hours of an hour
+  use that hour's value. For shortwave radiation, which Open-Meteo reports as
+  the mean over the preceding hour, this is a 30-minute simplification.
+- **Mart rows appear only after their cutoff has passed**, so the mart never
+  contains a half-finished forecast input set.
+- **Settlement calendar generated in SQL**, with DST-aware day boundaries via
+  adapter-dispatched timezone macros (DuckDB `timezone()` and BigQuery
+  `TIMESTAMP(DATETIME, tz)`).

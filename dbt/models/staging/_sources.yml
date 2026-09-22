@@ -1,0 +1,97 @@
+version: 2
+
+# On DuckDB each source table is read straight from the Parquet lake written by
+# `elec ingest` (dbt-duckdb `external_location`). On BigQuery the same files are
+# loaded into the raw dataset below (docs/bigquery.md) and read as tables.
+sources:
+  - name: lake
+    description: Normalised Parquet written by `elec ingest`, one file per request chunk.
+    schema: "{{ env_var('BQ_RAW_DATASET', 'elecprice_raw') }}"
+    tables:
+      - name: elexon_mid
+        description: Elexon Market Index Data (APXMIDP), half-hourly price and traded volume.
+        config:
+          meta:
+            external_location: "read_parquet('{{ env_var('ELEC_LAKE_DIR', '../data/lake') }}/elexon/mid/*.parquet')"
+          loaded_at_field: start_time
+          freshness:
+            warn_after: {count: 6, period: hour}
+            error_after: {count: 24, period: hour}
+
+      - name: elexon_demand_outturn
+        description: Initial national (INDO) and transmission (ITSDO) demand outturn.
+        config:
+          meta:
+            external_location: "read_parquet('{{ env_var('ELEC_LAKE_DIR', '../data/lake') }}/elexon/demand_outturn/*.parquet')"
+          loaded_at_field: publish_time
+          freshness:
+            warn_after: {count: 6, period: hour}
+            error_after: {count: 24, period: hour}
+
+      - name: elexon_fuelhh
+        description: Half-hourly generation outturn by fuel type.
+        config:
+          meta:
+            external_location: "read_parquet('{{ env_var('ELEC_LAKE_DIR', '../data/lake') }}/elexon/fuelhh/*.parquet')"
+          loaded_at_field: publish_time
+          freshness:
+            warn_after: {count: 6, period: hour}
+            error_after: {count: 24, period: hour}
+
+      - name: elexon_ndf
+        description: >
+          NESO national demand forecast (NDF), one row per vintage and settlement
+          period. Only vintages published 04:00-11:00 UTC are ingested.
+        config:
+          meta:
+            external_location: "read_parquet('{{ env_var('ELEC_LAKE_DIR', '../data/lake') }}/elexon/ndf/*.parquet')"
+          loaded_at_field: publish_time
+          freshness:
+            warn_after: {count: 24, period: hour}
+            error_after: {count: 48, period: hour}
+
+      - name: elexon_windfor
+        description: NESO transmission wind generation forecast (hourly), one row per vintage.
+        config:
+          meta:
+            external_location: "read_parquet('{{ env_var('ELEC_LAKE_DIR', '../data/lake') }}/elexon/windfor/*.parquet')"
+          loaded_at_field: publish_time
+          freshness:
+            warn_after: {count: 12, period: hour}
+            error_after: {count: 48, period: hour}
+
+      - name: neso_embedded_forecast
+        description: >
+          NESO embedded wind and solar forecast archive, one row per vintage and
+          settlement period. `forecast_issued_at` is UTC (see DECISIONS.md on the
+          source's local-time stamps).
+        config:
+          meta:
+            external_location: "read_parquet('{{ env_var('ELEC_LAKE_DIR', '../data/lake') }}/neso/embedded_forecast/*.parquet')"
+          loaded_at_field: forecast_issued_at
+          freshness:
+            warn_after: {count: 24, period: hour}
+            error_after: {count: 48, period: hour}
+
+      - name: openmeteo_weather_forecast
+        description: >
+          ICON forecasts from the Open-Meteo Previous Runs API at 15 GB locations.
+          One row per location, valid hour and lead (1 or 2 days), stamped with a
+          conservative `available_at`.
+        config:
+          meta:
+            external_location: "read_parquet('{{ env_var('ELEC_LAKE_DIR', '../data/lake') }}/openmeteo/weather_forecast/*.parquet')"
+          loaded_at_field: _ingested_at
+          freshness:
+            warn_after: {count: 36, period: hour}
+            error_after: {count: 72, period: hour}
+
+      - name: carbon_intensity
+        description: National carbon intensity (gCO2/kWh), forecast and actual.
+        config:
+          meta:
+            external_location: "read_parquet('{{ env_var('ELEC_LAKE_DIR', '../data/lake') }}/carbon/intensity/*.parquet')"
+          loaded_at_field: start_time
+          freshness:
+            warn_after: {count: 12, period: hour}
+            error_after: {count: 48, period: hour}

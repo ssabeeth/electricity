@@ -1,0 +1,21 @@
+fuel_type,category,is_interconnector,description
+BIOMASS,biomass,false,Biomass
+CCGT,gas,false,Combined cycle gas turbine
+OCGT,gas,false,Open cycle gas turbine
+COAL,coal,false,Coal
+OIL,other,false,Oil
+NUCLEAR,nuclear,false,Nuclear
+WIND,wind,false,Transmission-connected wind
+NPSHYD,hydro,false,Non pumped-storage hydro
+PS,storage,false,Pumped storage (net)
+OTHER,other,false,Other
+INTFR,interconnector,true,IFA (France)
+INTIFA2,interconnector,true,IFA2 (France)
+INTELEC,interconnector,true,ElecLink (France)
+INTNED,interconnector,true,BritNed (Netherlands)
+INTNEM,interconnector,true,Nemo Link (Belgium)
+INTNSL,interconnector,true,North Sea Link (Norway)
+INTVKL,interconnector,true,Viking Link (Denmark)
+INTGRNL,interconnector,true,Greenlink (Ireland)
+INTIRL,interconnector,true,Moyle (Northern Ireland)
+INTEW,interconnector,true,East West (Ireland)

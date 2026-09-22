@@ -1,0 +1,72 @@
+version: 2
+
+models:
+  - name: mart_features
+    description: >
+      One row per delivery half-hour with every model feature, each computed
+      only from data available at the decision cutoff (09:00 UK on D-1). Every
+      feature group carries the availability timestamp of its newest input and
+      the point_in_time test enforces `<= cutoff_utc`. The target is in
+      fct_price_actuals.
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: [settlement_date, settlement_period]
+      - point_in_time:
+          name: pit_mart_features
+          arguments:
+            cutoff_column: cutoff_utc
+            available_at_columns:
+              - ndf_published_at
+              - windfor_published_at
+              - emb_issued_at
+              - wx_available_at
+              - price_available_at
+              - system_available_at
+            guarded_columns:
+              ndf_published_at: [ndf_demand_mw, residual_demand_mw]
+              windfor_published_at: [windfor_mw, residual_demand_mw]
+              emb_issued_at: [emb_wind_mw, emb_solar_mw, emb_solar_load_factor]
+              wx_available_at: [wx_wind_speed_100m_ms, wx_wind_power_index, wx_solar_radiation_wm2, wx_cloud_cover_pct, wx_temperature_c]
+              price_available_at: [price_d7_same_period, price_d2_same_period, price_d1_same_period, price_last_known, price_24h_mean, price_7d_mean]
+              system_available_at: [ci_actual_24h_mean, gas_share_7d, wind_share_7d, net_imports_7d_mean_mw, demand_outturn_7d_mean_mw]
+    columns:
+      - name: settlement_date
+        description: UK local delivery day.
+        data_tests: [not_null]
+      - name: settlement_period
+        description: 1..46/48/50; period 1 starts at 00:00 UK time.
+        data_tests: [not_null]
+      - name: start_time_utc
+        data_tests: [not_null, unique]
+      - name: cutoff_utc
+        description: Decision cutoff for this delivery day (09:00 UK on D-1), in UTC.
+        data_tests: [not_null]
+      - name: ndf_demand_mw
+        description: NESO national demand forecast (latest vintage before cutoff).
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+      - name: residual_demand_mw
+        description: NDF minus transmission wind forecast. The main short-run price driver.
+      - name: wx_max_lead_days
+        description: Oldest forecast lead used (1 or 2 days). Mostly 2 under a 09:00 cutoff.
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [1, 2]
+      - name: price_d7_same_period
+        description: MID at the same UK clock time seven days earlier. Also the naive seasonal baseline.
+
+  - name: fct_price_actuals
+    description: Realised Market Index Price per settlement period (target and settlement price).
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: [settlement_date, settlement_period]
+    columns:
+      - name: start_time_utc
+        data_tests: [not_null, unique]
+      - name: is_traded
+        data_tests: [not_null]

@@ -1,0 +1,22 @@
+# Two targets. `duckdb` is the default for local runs and CI; `bigquery` is
+# configured but only usable once a service account exists (docs/bigquery.md).
+elecprice:
+  target: "{{ env_var('DBT_TARGET', 'duckdb') }}"
+  outputs:
+    duckdb:
+      type: duckdb
+      path: "{{ env_var('ELEC_DUCKDB_PATH', '../data/warehouse.duckdb') }}"
+      threads: 4
+      settings:
+        TimeZone: UTC
+
+    bigquery:
+      type: bigquery
+      method: service-account
+      keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '') }}"
+      project: "{{ env_var('GCP_PROJECT', 'set-GCP_PROJECT') }}"
+      dataset: "{{ env_var('BQ_DATASET', 'elecprice') }}"
+      location: "{{ env_var('BQ_LOCATION', 'europe-west2') }}"
+      threads: 4
+      job_execution_timeout_seconds: 600
+      priority: interactive

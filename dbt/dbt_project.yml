@@ -1,0 +1,60 @@
+name: elecprice
+version: "0.3.0"
+config-version: 2
+profile: elecprice
+
+model-paths: ["models"]
+seed-paths: ["seeds"]
+test-paths: ["tests"]
+macro-paths: ["macros"]
+snapshot-paths: ["snapshots"]
+target-path: "target"
+clean-targets: ["target", "dbt_packages", "logs"]
+
+vars:
+  # First delivery day in the feature mart. Archived weather forecasts start
+  # 2024-02-17 (see DECISIONS.md), so the mart starts 2024-03-01.
+  feature_start_date: "2024-03-01"
+  # Decision cutoff, UK local time on D-1 for delivery day D.
+  cutoff_local_time: "09:00:00"
+  # MID has no publish timestamp. Assume a period's price is known this many
+  # minutes after the period ends (conservative; Elexon publishes within ~15 min).
+  mid_availability_lag_minutes: 60
+  # Same assumption for carbon intensity actuals.
+  carbon_availability_lag_minutes: 60
+  # Days past today to extend the settlement calendar.
+  calendar_lookahead_days: 2
+  # Optional last delivery day (used to cap the calendar for fixture builds).
+  feature_end_date: null
+  # Enables a deliberately leaky model used to prove the point-in-time test works.
+  pit_canary: false
+
+models:
+  elecprice:
+    +persist_docs:
+      relation: true
+      columns: true
+    staging:
+      +materialized: view
+      +schema: staging
+    intermediate:
+      +materialized: table
+      +schema: intermediate
+    marts:
+      +materialized: table
+      +schema: marts
+    canary:
+      +materialized: view
+      +schema: canary
+
+seeds:
+  elecprice:
+    +schema: seeds
+
+snapshots:
+  elecprice:
+    +schema: snapshots
+
+data_tests:
+  elecprice:
+    +store_failures: false

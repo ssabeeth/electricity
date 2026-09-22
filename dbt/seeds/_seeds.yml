@@ -1,0 +1,20 @@
+version: 2
+
+seeds:
+  - name: weather_locations
+    description: >
+      Open-Meteo sample points and their weights in the wind, solar and
+      temperature aggregates. Read by both ingestion (coordinates) and dbt (weights).
+    columns:
+      - name: location_id
+        data_tests: [unique, not_null]
+  - name: uk_bank_holidays
+    description: England and Wales bank holidays (generated with the `holidays` package).
+    config:
+      column_types:
+        holiday_date: date
+  - name: fuel_types
+    description: Elexon FUELHH fuel types mapped to categories.
+    columns:
+      - name: fuel_type
+        data_tests: [unique, not_null]

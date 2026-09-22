@@ -8,8 +8,8 @@ _No blockers._ The remote `origin` is `https://github.com/ssabeeth/electricity.g
 |---|---|---|
 | 1. Scaffold | done | `v0.1-scaffold` |
 | 2. Ingestion | done | `v0.2-ingestion` |
-| 3. dbt | next | |
-| 4. Modelling | | |
+| 3. dbt | done | `v0.3-dbt` |
+| 4. Modelling | next | |
 | 5. Battery simulation | | |
 | 6. Orchestration | | |
 | 7. Serving | | |
@@ -75,3 +75,35 @@ Done:
   failure isolation, horizon clipping, every normaliser (with real trimmed
   payloads), the NESO timezone handling and Open-Meteo availability stamps.
   Live smoke tests are marked `network` and excluded from CI.
+
+### Phase 3 — dbt (2026-09-22)
+
+Done:
+- dbt project with a `duckdb` target (default) and a `bigquery` target. Every
+  non-portable SQL expression sits behind an adapter-dispatched macro
+  (`macros/cross_db.sql`).
+- Layers:
+  - 8 staging views over the Parquet lake, deduplicated on natural keys.
+  - A DST-aware settlement calendar with per-day cutoffs.
+  - As-of models for NDF, WINDFOR, NESO embedded and weather (15 locations,
+    weighted wind, solar and temperature aggregates, plus a turbine power-curve
+    index).
+  - Price-lag features and daily system-state features.
+  - `mart_features` (44,926 half-hours, 2024-03-01 to today, 42 columns) and
+    `fct_price_actuals`.
+- Tests (99 nodes, about 3 seconds on the full history):
+  - `point_in_time` on every as-of model and the mart;
+  - a leaky canary model that must fail;
+  - 2 dbt unit tests for the as-of logic;
+  - uniqueness, not-null and range checks on keys and values;
+  - calendar clock-change checks, an as-of optimality check, and a warning if
+    no post-cutoff vintages exist (which would make the guard vacuous).
+- Source freshness on all 8 sources. Snapshots (type-2 `check`) track
+  revisions to MID, demand outturn and generation by fuel.
+- The committed fixture lake is 560KB covering 2024-03-01 to 2024-04-07,
+  including a clock change. It is reproducible with `make fixtures`. CI runs
+  `dbt build` on it and asserts the canary fails.
+
+Known data gaps (warnings, not errors): NDF has no vintages for 38 periods on
+2025-07-15. Feature coverage is above 99.8% for every group except
+`price_d1_same_period`, which by design is known only for early-morning periods.

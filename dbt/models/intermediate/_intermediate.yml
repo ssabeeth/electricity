@@ -1,0 +1,147 @@
+version: 2
+
+models:
+  - name: int_settlement_calendar
+    description: >
+      Delivery-period spine with DST-aware UTC start times and the decision
+      cutoff (`cutoff_local_time` UK on D-1) for each delivery day.
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: [settlement_date, settlement_period]
+    columns:
+      - name: start_time_utc
+        data_tests: [not_null, unique]
+      - name: cutoff_utc
+        data_tests: [not_null]
+      - name: periods_in_day
+        data_tests:
+          - accepted_values:
+              arguments:
+                values: [46, 48, 50]
+
+  - name: int_demand_forecast_asof
+    description: Latest NDF vintage published at or before the cutoff, per delivery period.
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: [settlement_date, settlement_period]
+      - point_in_time:
+          name: pit_int_demand_forecast_asof
+          arguments:
+            cutoff_column: cutoff_utc
+            available_at_columns: [ndf_published_at]
+            guarded_columns: {ndf_published_at: [ndf_demand_mw]}
+
+  - name: int_wind_forecast_asof
+    description: Latest WINDFOR vintage published at or before the cutoff, per delivery period.
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: [settlement_date, settlement_period]
+      - point_in_time:
+          name: pit_int_wind_forecast_asof
+          arguments:
+            cutoff_column: cutoff_utc
+            available_at_columns: [windfor_published_at]
+            guarded_columns: {windfor_published_at: [windfor_mw]}
+
+  - name: int_embedded_forecast_asof
+    description: Latest NESO embedded forecast vintage issued at or before the cutoff.
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: [settlement_date, settlement_period]
+      - point_in_time:
+          name: pit_int_embedded_forecast_asof
+          arguments:
+            cutoff_column: cutoff_utc
+            available_at_columns: [emb_issued_at]
+            guarded_columns: {emb_issued_at: [emb_wind_mw, emb_solar_mw]}
+
+  - name: int_weather_asof
+    description: Weighted weather features from the latest vintage available at the cutoff.
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: [settlement_date, settlement_period]
+      - point_in_time:
+          name: pit_int_weather_asof
+          arguments:
+            cutoff_column: cutoff_utc
+            available_at_columns: [wx_available_at]
+            guarded_columns:
+              wx_available_at: [wx_wind_speed_100m_ms, wx_solar_radiation_wm2, wx_temperature_c]
+
+  - name: int_price_features
+    description: Lagged MID price features known at the cutoff.
+    data_tests:
+      - unique_combination:
+          arguments:
+            combination: [settlement_date, settlement_period]
+      - point_in_time:
+          name: pit_int_price_features
+          arguments:
+            cutoff_column: cutoff_utc
+            available_at_columns: [price_available_at]
+            guarded_columns:
+              price_available_at: [price_d7_same_period, price_d2_same_period, price_d1_same_period, price_7d_mean]
+
+  - name: int_system_features
+    description: Daily system-state features (carbon, generation mix, demand) known at the cutoff.
+    columns:
+      - name: settlement_date
+        data_tests: [unique, not_null]
+    data_tests:
+      - point_in_time:
+          name: pit_settlement_date
+          arguments:
+            cutoff_column: cutoff_utc
+            available_at_columns: [system_available_at]
+            guarded_columns: {system_available_at: [ci_actual_24h_mean, gas_share_7d]}
+
+unit_tests:
+  - name: demand_forecast_asof_takes_latest_vintage_before_cutoff
+    description: >
+      Vintages at 07:15 and 07:45 UTC are before the 08:00 UTC (09:00 BST)
+      cutoff; 08:15 is after it and must be ignored. A period with only
+      post-cutoff vintages gets nulls, not the leaked value.
+    model: int_demand_forecast_asof
+    given:
+      - input: ref('int_settlement_calendar')
+        rows:
+          - {settlement_date: 2024-07-02, settlement_period: 1, start_time_utc: 2024-07-01 23:00:00, cutoff_utc: 2024-07-01 08:00:00}
+          - {settlement_date: 2024-07-02, settlement_period: 2, start_time_utc: 2024-07-01 23:30:00, cutoff_utc: 2024-07-01 08:00:00}
+      - input: ref('stg_elexon__demand_forecast')
+        rows:
+          - {settlement_date: 2024-07-02, settlement_period: 1, published_at: 2024-07-01 07:15:00, demand_mw: 90}
+          - {settlement_date: 2024-07-02, settlement_period: 1, published_at: 2024-07-01 07:45:00, demand_mw: 100}
+          - {settlement_date: 2024-07-02, settlement_period: 1, published_at: 2024-07-01 08:15:00, demand_mw: 999}
+          - {settlement_date: 2024-07-02, settlement_period: 2, published_at: 2024-07-01 08:15:00, demand_mw: 999}
+    expect:
+      rows:
+        - {settlement_date: 2024-07-02, settlement_period: 1, cutoff_utc: 2024-07-01 08:00:00, ndf_demand_mw: 100, ndf_published_at: 2024-07-01 07:45:00}
+        - {settlement_date: 2024-07-02, settlement_period: 2, cutoff_utc: 2024-07-01 08:00:00, ndf_demand_mw: null, ndf_published_at: null}
+
+  - name: weather_asof_prefers_latest_available_vintage_not_latest_issued
+    description: >
+      The day-1 vintage (issued later, more accurate) is only available after
+      the cutoff, so the day-2 vintage must be used. Weighted averages use the
+      seed weights: (10*1 + 20*3) / 4 = 17.5.
+    model: int_weather_asof
+    given:
+      - input: ref('int_settlement_calendar')
+        rows:
+          - {settlement_date: 2024-07-02, settlement_period: 25, hour_utc: 2024-07-02 11:00:00, cutoff_utc: 2024-07-01 08:00:00}
+      - input: ref('weather_locations')
+        rows:
+          - {location_id: a, wind_weight: 1, solar_weight: 0, temperature_weight: 1}
+          - {location_id: b, wind_weight: 3, solar_weight: 1, temperature_weight: 0}
+      - input: ref('stg_openmeteo__weather_forecast')
+        rows:
+          - {location_id: a, valid_hour_utc: 2024-07-02 11:00:00, lead_days: 2, available_at: 2024-06-30 17:00:00, wind_speed_100m_ms: 10, temperature_c: 15, shortwave_radiation_wm2: 100, cloud_cover_pct: 50}
+          - {location_id: a, valid_hour_utc: 2024-07-02 11:00:00, lead_days: 1, available_at: 2024-07-01 17:00:00, wind_speed_100m_ms: 99, temperature_c: 99, shortwave_radiation_wm2: 999, cloud_cover_pct: 99}
+          - {location_id: b, valid_hour_utc: 2024-07-02 11:00:00, lead_days: 2, available_at: 2024-06-30 17:00:00, wind_speed_100m_ms: 20, temperature_c: 25, shortwave_radiation_wm2: 300, cloud_cover_pct: 10}
+    expect:
+      rows:
+        - {settlement_date: 2024-07-02, settlement_period: 25, wx_wind_speed_100m_ms: 17.5, wx_temperature_c: 15, wx_solar_radiation_wm2: 300, wx_available_at: 2024-06-30 17:00:00, wx_max_lead_days: 2, wx_locations: 2}

@@ -34,6 +34,12 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     return 0 if all(r.ok for r in reports) else 1
 
 
+def cmd_dbt(args: argparse.Namespace) -> int:
+    from elecprice.dbt_runner import run_dbt
+
+    return run_dbt(args.dbt_args)
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="elec", description=__doc__)
     parser.add_argument("--version", action="version", version=f"elecprice {__version__}")
@@ -56,6 +62,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--list", action="store_true", help="list datasets and exit")
     p.set_defaults(handler=cmd_ingest)
+
+    p = sub.add_parser("dbt", help="Run dbt with project paths wired in (e.g. elec dbt build)")
+    p.add_argument("dbt_args", nargs=argparse.REMAINDER, help="arguments passed to dbt")
+    p.set_defaults(handler=cmd_dbt)
 
     return parser
 

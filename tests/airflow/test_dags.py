@@ -36,7 +36,12 @@ def test_no_import_errors(dagbag):
 
 
 def test_expected_dags(dagbag):
-    assert set(dagbag.dag_ids) == {"elec_ingest", "elec_daily_forecast", "elec_weekly_retrain"}
+    assert set(dagbag.dag_ids) == {
+        "elec_bootstrap",
+        "elec_ingest",
+        "elec_daily_forecast",
+        "elec_weekly_retrain",
+    }
 
 
 def chain(dag):
@@ -65,6 +70,12 @@ def test_daily_forecast_runs_after_cutoff_in_uk_time(dagbag):
     assert dag.catchup is False
 
 
+def test_daily_forecast_uses_the_runs_own_time(dagbag):
+    dag = dagbag.dags["elec_daily_forecast"]
+    for task_id in ("forecast_tomorrow", "battery_schedule"):
+        assert "--as-of '{{ dag_run.run_after }}'" in dag.get_task(task_id).bash_command
+
+
 def test_weekly_retrain_order(dagbag):
     dag = dagbag.dags["elec_weekly_retrain"]
     assert chain(dag) == [
@@ -80,3 +91,28 @@ def test_every_task_calls_the_elec_cli(dagbag):
     for dag in dagbag.dags.values():
         for task in dag.tasks:
             assert "elec " in task.bash_command, (dag.dag_id, task.task_id)
+
+
+def test_warehouse_tasks_share_the_single_slot_pool(dagbag):
+    """Anything that opens DuckDB (dbt, forecast, monitor, retrain) must use the pool."""
+    for dag in dagbag.dags.values():
+        for task in dag.tasks:
+            cmd = task.bash_command
+            opens_warehouse = any(
+                k in cmd
+                for k in ("dbt ", " forecast", " monitor", " retrain", " backtest", "--step")
+            )
+            if opens_warehouse:
+                assert task.pool == "warehouse", (dag.dag_id, task.task_id)
+
+
+def test_bootstrap_runs_once_in_order(dagbag):
+    dag = dagbag.dags["elec_bootstrap"]
+    assert chain(dag) == [
+        "ingest_history",
+        "dbt_build",
+        "backtest",
+        "register_champion",
+        "battery_simulation",
+        "first_forecast",
+    ]

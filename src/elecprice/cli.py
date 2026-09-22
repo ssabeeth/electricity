@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 from elecprice import __version__
 from elecprice.config import get_settings
@@ -115,10 +115,21 @@ def cmd_simulate(args: argparse.Namespace) -> int:
     return 0
 
 
+def _delivery_date(args: argparse.Namespace):
+    """--date wins; else the day after --as-of (UK); else tomorrow (UK)."""
+    from elecprice.pipeline.live import tomorrow_uk
+
+    if args.date:
+        return args.date
+    if args.as_of:
+        return tomorrow_uk(datetime.fromisoformat(args.as_of))
+    return tomorrow_uk()
+
+
 def cmd_forecast(args: argparse.Namespace) -> int:
     from elecprice.pipeline.live import forecast_day
 
-    out = forecast_day(args.date)
+    out = forecast_day(_delivery_date(args))
     lg = out[out["model"] == "lgbm_quantile"]
     print(lg[["settlement_period", "p10", "p50", "p90"]].round(1).to_string(index=False))
     return 0
@@ -127,7 +138,7 @@ def cmd_forecast(args: argparse.Namespace) -> int:
 def cmd_schedule(args: argparse.Namespace) -> int:
     from elecprice.pipeline.live import schedule_day
 
-    schedule_day(args.date)
+    schedule_day(_delivery_date(args))
     return 0
 
 
@@ -143,6 +154,18 @@ def cmd_retrain(args: argparse.Namespace) -> int:
 
     result = retrain(min_eval_days=args.min_eval_days)
     print(json.dumps(result, indent=2, default=str))
+    return 0
+
+
+def cmd_bootstrap(args: argparse.Namespace) -> int:
+    from elecprice.pipeline import bootstrap
+
+    if args.step == "all":
+        bootstrap.bootstrap()
+    elif args.step == "champion":
+        bootstrap.train_champion_if_missing()
+    elif args.step == "forecast":
+        bootstrap.forecast_next_available()
     return 0
 
 
@@ -190,12 +213,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--no-mlflow", action="store_true")
     p.set_defaults(handler=cmd_simulate)
 
+    as_of_help = "run time (ISO); delivery date is the next UK day (Airflow passes run_after)"
     p = sub.add_parser("forecast", help="Forecast a delivery day with the champion model")
     p.add_argument("--date", type=_date, help="delivery date (default: tomorrow, UK)")
+    p.add_argument("--as-of", help=as_of_help)
     p.set_defaults(handler=cmd_forecast)
 
     p = sub.add_parser("schedule", help="Battery schedule for a delivery day from its forecast")
     p.add_argument("--date", type=_date, help="delivery date (default: tomorrow, UK)")
+    p.add_argument("--as-of", help=as_of_help)
     p.set_defaults(handler=cmd_schedule)
 
     p = sub.add_parser("monitor", help="Settle live forecasts and schedules against actuals")
@@ -204,6 +230,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("retrain", help="Weekly champion/challenger retrain and promotion")
     p.add_argument("--min-eval-days", type=int, default=5)
     p.set_defaults(handler=cmd_retrain)
+
+    p = sub.add_parser("bootstrap", help="Idempotent first-run setup from a clean clone")
+    p.add_argument("--step", choices=["all", "champion", "forecast"], default="all")
+    p.set_defaults(handler=cmd_bootstrap)
 
     p = sub.add_parser("dbt", help="Run dbt with project paths wired in (e.g. elec dbt build)")
     p.add_argument("dbt_args", nargs=argparse.REMAINDER, help="arguments passed to dbt")

@@ -31,6 +31,17 @@ def test_judgement_fold_starts_after_both_models_training_data():
     assert fold["settlement_date"].max() == pd.Timestamp("2024-01-20")
 
 
+def test_tomorrow_uk_handles_timezones_and_clock_changes():
+    from datetime import datetime
+
+    from elecprice.pipeline.live import tomorrow_uk
+
+    # 23:30 UTC on 21 Jun is 00:30 BST on 22 Jun, so "tomorrow" is 23 Jun.
+    assert tomorrow_uk(datetime(2026, 6, 21, 23, 30)) == date(2026, 6, 23)
+    assert tomorrow_uk(datetime.fromisoformat("2026-09-21T08:05:00+00:00")) == date(2026, 9, 22)
+    assert tomorrow_uk(datetime(2026, 1, 10, 23, 30)) == date(2026, 1, 11)  # GMT
+
+
 def test_upsert_replaces_matching_keys_and_is_world_readable(tmp_path):
     path = tmp_path / "out.parquet"
     store.upsert(path, pd.DataFrame({"k": [1, 2], "v": ["a", "b"]}), ["k"])

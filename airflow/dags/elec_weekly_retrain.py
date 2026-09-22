@@ -12,7 +12,7 @@ from datetime import timedelta
 
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.sdk import DAG
-from elec_common import DEFAULT_ARGS, START, elec
+from elec_common import DEFAULT_ARGS, START, WAREHOUSE_POOL, elec
 
 with DAG(
     dag_id="elec_weekly_retrain",
@@ -27,9 +27,15 @@ with DAG(
     doc_md=__doc__,
 ) as dag:
     ingest = BashOperator(task_id="ingest_latest", bash_command=elec("ingest --days 7"))
-    dbt_build = BashOperator(task_id="dbt_build", bash_command=elec("dbt build"))
-    retrain = BashOperator(task_id="retrain_and_promote", bash_command=elec("retrain"))
-    backtest = BashOperator(task_id="refresh_backtest", bash_command=elec("backtest"))
+    dbt_build = BashOperator(
+        task_id="dbt_build", bash_command=elec("dbt build"), pool=WAREHOUSE_POOL
+    )
+    retrain = BashOperator(
+        task_id="retrain_and_promote", bash_command=elec("retrain"), pool=WAREHOUSE_POOL
+    )
+    backtest = BashOperator(
+        task_id="refresh_backtest", bash_command=elec("backtest"), pool=WAREHOUSE_POOL
+    )
     simulate = BashOperator(task_id="refresh_battery_simulation", bash_command=elec("simulate"))
 
     ingest >> dbt_build >> retrain >> backtest >> simulate

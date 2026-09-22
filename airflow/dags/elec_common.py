@@ -14,6 +14,9 @@ from datetime import timedelta
 import pendulum
 
 ELEC_BIN = os.environ.get("ELEC_BIN", "elec")
+# DuckDB allows one writer process. Every task that opens the warehouse runs in
+# this single-slot pool, so DAGs never contend for the file lock.
+WAREHOUSE_POOL = "warehouse"
 UK = pendulum.timezone("Europe/London")
 START = pendulum.datetime(2026, 9, 1, tz=UK)
 

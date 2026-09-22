@@ -10,7 +10,7 @@ from datetime import timedelta
 
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.sdk import DAG
-from elec_common import DEFAULT_ARGS, START, elec
+from elec_common import DEFAULT_ARGS, START, WAREHOUSE_POOL, elec
 
 with DAG(
     dag_id="elec_ingest",
@@ -27,6 +27,7 @@ with DAG(
     freshness = BashOperator(
         task_id="source_freshness",
         bash_command=elec("dbt source freshness"),
+        pool=WAREHOUSE_POOL,
         doc_md="Fails (and alerts) if any source has stopped updating.",
     )
     ingest >> freshness

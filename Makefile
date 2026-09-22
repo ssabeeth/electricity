@@ -53,3 +53,15 @@ dbt-docs: ## Generate and serve dbt docs
 .PHONY: fixtures
 fixtures: ## Regenerate the committed sample lake under tests/fixtures/lake
 	$(UV) run python scripts/make_fixtures.py
+
+.PHONY: backtest
+backtest: ## Walk-forward backtest, log to MLflow, regenerate reports/backtest.md
+	$(UV) run elec backtest
+
+.PHONY: train
+train: ## Train on all data and register as the champion model
+	$(UV) run elec train --alias champion
+
+.PHONY: mlflow-ui
+mlflow-ui: ## Local MLflow UI on the sqlite store
+	$(UV) run mlflow ui --backend-store-uri sqlite:///data/mlflow/mlflow.db --port 5000

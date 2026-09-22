@@ -40,6 +40,45 @@ def cmd_dbt(args: argparse.Namespace) -> int:
     return run_dbt(args.dbt_args)
 
 
+def cmd_backtest(args: argparse.Namespace) -> int:
+    from elecprice.modelling.data import ModelConfig
+    from elecprice.modelling.runner import backtest
+
+    overrides = {}
+    if args.target_mode:
+        overrides["target_mode"] = args.target_mode
+    if args.calibration:
+        overrides["calibration"] = {"mode": args.calibration, "days": 56}
+    config = ModelConfig.load(**overrides)
+    backtest(config, use_mlflow=not args.no_mlflow, write_report=not args.no_report)
+    return 0
+
+
+def cmd_report(args: argparse.Namespace) -> int:
+    from elecprice.config import REPO_ROOT
+    from elecprice.modelling import report
+    from elecprice.modelling.runner import backtest_dir
+
+    report.write_figures(backtest_dir(), REPO_ROOT / "reports" / "figures")
+    report.write_markdown(backtest_dir(), REPO_ROOT / "reports" / "backtest.md")
+    return 0
+
+
+def cmd_train(args: argparse.Namespace) -> int:
+    from elecprice.modelling.runner import fit_final, register_model, train_candidate
+
+    res = train_candidate(eval_days=args.eval_days)
+    model = fit_final(res["config"], res["frame"])
+    metrics = {f"latest_fold_{k}": v for k, v in res["candidate_metrics"].items() if k != "n"}
+    tags = {
+        "eval_fold": f"{res['fold'][0]}..{res['fold'][1]}",
+        "trained_through": str(res["frame"]["settlement_date"].max().date()),
+    }
+    version = register_model(model, res["config"], metrics, tags, alias=args.alias)
+    print(f"registered version {version} (alias={args.alias}) {metrics}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="elec", description=__doc__)
     parser.add_argument("--version", action="version", version=f"elecprice {__version__}")
@@ -62,6 +101,21 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--list", action="store_true", help="list datasets and exit")
     p.set_defaults(handler=cmd_ingest)
+
+    p = sub.add_parser("backtest", help="Walk-forward backtest, MLflow logging and report")
+    p.add_argument("--target-mode", choices=["level", "delta_7d_mean"])
+    p.add_argument("--calibration", choices=["none", "outer", "all"])
+    p.add_argument("--no-mlflow", action="store_true")
+    p.add_argument("--no-report", action="store_true")
+    p.set_defaults(handler=cmd_backtest)
+
+    p = sub.add_parser("report", help="Rebuild reports/backtest.md from saved backtest outputs")
+    p.set_defaults(handler=cmd_report)
+
+    p = sub.add_parser("train", help="Train on all data and register the model in MLflow")
+    p.add_argument("--eval-days", type=int, default=28, help="latest fold length for metrics")
+    p.add_argument("--alias", default=None, help="registry alias to set, e.g. champion")
+    p.set_defaults(handler=cmd_train)
 
     p = sub.add_parser("dbt", help="Run dbt with project paths wired in (e.g. elec dbt build)")
     p.add_argument("dbt_args", nargs=argparse.REMAINDER, help="arguments passed to dbt")

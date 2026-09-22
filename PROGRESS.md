@@ -9,8 +9,8 @@ _No blockers._ The remote `origin` is `https://github.com/ssabeeth/electricity.g
 | 1. Scaffold | done | `v0.1-scaffold` |
 | 2. Ingestion | done | `v0.2-ingestion` |
 | 3. dbt | done | `v0.3-dbt` |
-| 4. Modelling | next | |
-| 5. Battery simulation | | |
+| 4. Modelling | done | `v0.4-modelling` |
+| 5. Battery simulation | next | |
 | 6. Orchestration | | |
 | 7. Serving | | |
 | 8. Containerise | | |
@@ -107,3 +107,45 @@ Done:
 Known data gaps (warnings, not errors): NDF has no vintages for 38 periods on
 2025-07-15. Feature coverage is above 99.8% for every group except
 `price_d1_same_period`, which by design is known only for early-morning periods.
+
+### Phase 4 — Modelling (2026-09-22)
+
+Done:
+- `elecprice.modelling` contains:
+  - the seasonal naive baseline (probabilistic, via residual quantiles);
+  - LightGBM quantile models (P10/P50/P90) with a de-levelled target and
+    conformal calibration;
+  - metrics (pinball, coverage, MAE, RMSE, calibration);
+  - a walk-forward backtest with an explicit leakage assertion;
+  - MLflow tracking and registry;
+  - a report generator.
+- Results over 19 monthly folds (2025-03 to 2026-09, 27,339 half-hours), in
+  full in `reports/backtest.md`:
+
+  | model | pinball | MAE P50 | P10-P90 coverage |
+  |---|---|---|---|
+  | seasonal naive | 9.79 | £27.47 | 78.4% |
+  | LightGBM quantile | 5.07 | £15.46 | 78.5% |
+
+  LightGBM's pinball skill versus the baseline is 48% overall and 48.5% on the
+  hold-out folds, which played no part in model selection.
+- The champion model is registered in MLflow (`elecprice-lgbm-quantile@champion`,
+  v1), trained on all data through 2026-09-21.
+- CLI: `elec backtest`, `elec report`, `elec train --alias champion`.
+- 17 new tests, all on synthetic data except one that uses the fixture
+  warehouse:
+  - pinball properties;
+  - baseline behaviour;
+  - LightGBM beats the naive baseline and keeps its quantiles ordered;
+  - calibration moves coverage towards nominal;
+  - save/load round trips;
+  - fold construction;
+  - the leakage assertion;
+  - an end-to-end backtest.
+
+Observations for the README:
+- The top features are residual demand (NDF minus wind forecast), recent price
+  deviations, and the recent gas share.
+- The worst month is 2026-09. Prices jumped to a new level (weekday peaks above
+  £200) with windy weekends near £0. Without a gas input the model adapts with a
+  lag, and coverage on the latest 28-day fold is 58%.

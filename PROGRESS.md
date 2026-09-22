@@ -12,8 +12,8 @@ _No blockers._ The remote `origin` is `https://github.com/ssabeeth/electricity.g
 | 4. Modelling | done | `v0.4-modelling` |
 | 5. Battery simulation | done | `v0.5-battery` |
 | 6. Orchestration | done | `v0.6-orchestration` |
-| 7. Serving | next | |
-| 8. Containerise | | |
+| 7. Serving | done | `v0.7-serving` |
+| 8. Containerise | next | |
 | 9. Deployment prep | | |
 | 10. README | | |
 
@@ -210,3 +210,30 @@ Done:
   - output files were created with mode 0600, which would break cross-container
     reads;
   - the partially settled current day was being included in training.
+
+### Phase 7 — Serving (2026-09-22)
+
+Done:
+- FastAPI (`elecprice.serving.api`), with typed Pydantic responses and OpenAPI
+  docs at `/docs`:
+  - `/health`
+  - `/forecast/latest`, `/forecast/{date}` and `/forecast/range`
+  - `/backtest/metrics` and `/backtest/coverage`
+  - `/simulation/summary`, `/simulation/daily` and `/simulation/schedule/{date}`
+  - `/live/metrics`
+- Streamlit dashboard (`elecprice.serving.dashboard`) with four tabs:
+  - latest forecast: fan chart plus the battery schedule;
+  - backtest: KPIs, a week-picker fan chart, rolling coverage over time,
+    pinball by fold and feature importance;
+  - battery £: cumulative revenue by strategy and a summary table;
+  - live monitoring.
+- Verified against the real outputs: every endpoint returns 200, `uvicorn` and
+  `streamlit` start and pass their health checks, and the dashboard's KPIs match
+  the reports (48% skill, £15.5 MAE, 78.5% coverage, £27.1k/MW/yr, 73% of
+  perfect foresight).
+- 8 tests on outputs written by the real pipeline writers (a tiny backtest and
+  simulation on synthetic data). They cover endpoint contracts, 404/422
+  handling, live-over-backtest precedence, and a headless render of every
+  dashboard tab.
+- The in-app browser could not open localhost here, so the visual check was
+  done via Streamlit `AppTest` plus HTTP health checks instead of screenshots.

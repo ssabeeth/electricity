@@ -317,3 +317,24 @@ as different users). The API reads only these, never the warehouse.
 **No back-filled "live" history.** Scoring past days with today's champion
 would be in-sample and flattering. Live monitoring starts at deployment.
 Historical performance comes only from the walk-forward backtest.
+
+## 2026-09-22 — Serving
+
+- **The API reads pipeline outputs only**: Parquet and CSV under `data/outputs`,
+  cached by file modification time. It never opens the DuckDB warehouse, so it
+  cannot block or be blocked by the single-writer pipeline. It is read-only and
+  stateless, so it scales by adding replicas.
+- **The forecast endpoints fall back to backtest forecasts** when no live
+  forecast exists for a date. Every response carries a `source` field
+  (`live` or `backtest`) so the two are never confused. Before the first live
+  run, the dashboard still shows real out-of-sample forecasts.
+- **Coverage over time is computed from the walk-forward predictions**, as daily
+  coverage plus a rolling mean with a configurable window. Live coverage will
+  join it as live days settle.
+- **The dashboard talks only to the API**, as a separate service would. It also
+  has an in-process mode (`ELEC_API_URL=inprocess`) for local use and for the
+  headless Streamlit `AppTest`, which renders every tab in CI.
+- **No authentication on the API.** It exposes public-data forecasts
+  read-only. The deploy guide puts it, the dashboard and Airflow behind a
+  reverse proxy, with basic auth on Airflow and the option to add it to
+  everything.

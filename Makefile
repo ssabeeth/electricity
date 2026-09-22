@@ -89,3 +89,11 @@ daily: ## What the daily DAG does: ingest, dbt build, forecast, schedule, monito
 .PHONY: retrain
 retrain: ## Champion/challenger retrain
 	$(UV) run elec retrain
+
+.PHONY: api
+api: ## Run the FastAPI service on :8000 (docs at /docs)
+	$(UV) run uvicorn elecprice.serving.api:app --reload --port 8000
+
+.PHONY: dashboard
+dashboard: ## Run the Streamlit dashboard on :8501 (in-process API, no server needed)
+	ELEC_API_URL=$${ELEC_API_URL:-inprocess} $(UV) run streamlit run src/elecprice/serving/dashboard.py

@@ -1,0 +1,28 @@
+{
+ "data": [
+  {
+   "publishTime": "2024-02-26T00:30:00Z",
+   "startTime": "2024-02-26T00:00:00Z",
+   "settlementDate": "2024-02-26",
+   "settlementPeriod": 1,
+   "initialDemandOutturn": 23050,
+   "initialTransmissionSystemDemandOutturn": 24902
+  },
+  {
+   "publishTime": "2024-02-26T01:00:00Z",
+   "startTime": "2024-02-26T00:30:00Z",
+   "settlementDate": "2024-02-26",
+   "settlementPeriod": 2,
+   "initialDemandOutturn": 23399,
+   "initialTransmissionSystemDemandOutturn": 25467
+  },
+  {
+   "publishTime": "2024-02-26T01:30:00Z",
+   "startTime": "2024-02-26T01:00:00Z",
+   "settlementDate": "2024-02-26",
+   "settlementPeriod": 3,
+   "initialDemandOutturn": 22988,
+   "initialTransmissionSystemDemandOutturn": 25383
+  }
+ ]
+}

@@ -1,0 +1,144 @@
+{
+ "model": "icon_seamless",
+ "location_ids": [
+  "highlands_onshore",
+  "southern_uplands"
+ ],
+ "responses": [
+  {
+   "latitude": 57.3125,
+   "longitude": -4.375,
+   "generationtime_ms": 665.8656597137451,
+   "utc_offset_seconds": 0,
+   "timezone": "GMT",
+   "timezone_abbreviation": "GMT",
+   "elevation": 224.0,
+   "hourly_units": {
+    "time": "iso8601",
+    "temperature_2m_previous_day1": "\u00b0C",
+    "wind_speed_100m_previous_day1": "m/s",
+    "shortwave_radiation_previous_day1": "W/m\u00b2",
+    "cloud_cover_previous_day1": "%",
+    "temperature_2m_previous_day2": "\u00b0C",
+    "wind_speed_100m_previous_day2": "m/s",
+    "shortwave_radiation_previous_day2": "W/m\u00b2",
+    "cloud_cover_previous_day2": "%"
+   },
+   "hourly": {
+    "time": [
+     "2024-02-26T00:00",
+     "2024-02-26T01:00",
+     "2024-02-26T02:00"
+    ],
+    "temperature_2m_previous_day1": [
+     0.8,
+     0.8,
+     1.2
+    ],
+    "wind_speed_100m_previous_day1": [
+     2.11,
+     2.36,
+     2.51
+    ],
+    "shortwave_radiation_previous_day1": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "cloud_cover_previous_day1": [
+     83,
+     85,
+     84
+    ],
+    "temperature_2m_previous_day2": [
+     0.8,
+     1.1,
+     1.4
+    ],
+    "wind_speed_100m_previous_day2": [
+     2.06,
+     2.15,
+     2.08
+    ],
+    "shortwave_radiation_previous_day2": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "cloud_cover_previous_day2": [
+     100,
+     100,
+     67
+    ]
+   }
+  },
+  {
+   "latitude": 55.375,
+   "longitude": -3.625,
+   "generationtime_ms": 406.52334690093994,
+   "utc_offset_seconds": 0,
+   "timezone": "GMT",
+   "timezone_abbreviation": "GMT",
+   "elevation": 360.0,
+   "location_id": 1,
+   "hourly_units": {
+    "time": "iso8601",
+    "temperature_2m_previous_day1": "\u00b0C",
+    "wind_speed_100m_previous_day1": "m/s",
+    "shortwave_radiation_previous_day1": "W/m\u00b2",
+    "cloud_cover_previous_day1": "%",
+    "temperature_2m_previous_day2": "\u00b0C",
+    "wind_speed_100m_previous_day2": "m/s",
+    "shortwave_radiation_previous_day2": "W/m\u00b2",
+    "cloud_cover_previous_day2": "%"
+   },
+   "hourly": {
+    "time": [
+     "2024-02-26T00:00",
+     "2024-02-26T01:00",
+     "2024-02-26T02:00"
+    ],
+    "temperature_2m_previous_day1": [
+     1.5,
+     1.7,
+     1.4
+    ],
+    "wind_speed_100m_previous_day1": [
+     6.23,
+     6.29,
+     6.51
+    ],
+    "shortwave_radiation_previous_day1": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "cloud_cover_previous_day1": [
+     100,
+     97,
+     92
+    ],
+    "temperature_2m_previous_day2": [
+     0.1,
+     0.4,
+     0.8
+    ],
+    "wind_speed_100m_previous_day2": [
+     4.65,
+     5.22,
+     5.78
+    ],
+    "shortwave_radiation_previous_day2": [
+     0.0,
+     0.0,
+     0.0
+    ],
+    "cloud_cover_previous_day2": [
+     100,
+     91,
+     95
+    ]
+   }
+  }
+ ]
+}

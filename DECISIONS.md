@@ -100,3 +100,36 @@ gas-heavy the recent generation mix was.
 The repository had no git history and no remote. The owner supplied
 `https://github.com/ssabeeth/electricity.git` during the session; it is used as
 `origin`.
+
+## 2026-09-22 — NESO `Forecast_Datetime` timezone
+
+**Finding:** the NESO embedded forecast archive labels its columns `DATE_GMT` and
+`TIME_GMT`, but `Forecast_Datetime` is UK local time. There is no 01:12 vintage
+on the spring clock-change day (2026-03-29), and in summer the first period of
+each vintage is the one containing the issue time *minus one hour* in UTC.
+Treating it as UTC would make summer vintages look an hour older than they were.
+
+**Decision:** localise `Forecast_Datetime` to Europe/London. Resolve ambiguous
+autumn times to the later instant.
+
+**Format change:** from 2026-06-13 NESO switched `TIME_GMT` to `HH:MM` and moved
+vintages to irregular minutes (for example 06:53:03). In the new format the first
+forecast period is the *next* half-hour in UTC, which no longer pins down the
+timezone. For those rows we use the UTC reading. It is never earlier than the
+local reading (it is one hour later in BST and identical in GMT), so it is the
+conservative choice. Each row records its basis in `forecast_time_basis`
+(`uk_local` or `utc_assumed`).
+
+## 2026-09-22 — Ingestion design: aligned chunks, raw cache, Parquet lake
+
+**Options:** write straight into DuckDB tables; land raw JSON only; or land a raw
+cache plus normalised Parquet.
+
+**Decision:** each dataset is fetched in fixed chunks aligned to a fixed epoch,
+so re-runs with a different start date reuse the same files. The raw response is
+kept gzipped, which means we never need to re-hit an API. A normalised Parquet
+file sits next to it, and dbt reads those files directly. Chunks older than
+`refresh_days` (default 3) are never re-fetched. Recent chunks are, because
+sources back-fill them. This keeps ingestion idempotent and the warehouse
+rebuildable from files alone, with no database state to migrate. The same
+Parquet files can be loaded into BigQuery.

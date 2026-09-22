@@ -1,0 +1,16 @@
+location_id,latitude,longitude,wind_weight,solar_weight,temperature_weight,description
+highlands_onshore,57.30,-4.40,1.0,0,0,Scottish Highlands onshore wind cluster
+southern_uplands,55.40,-3.60,0.8,0,0,Southern Uplands onshore wind
+moray_firth,58.10,-3.00,0.6,0,0,Moray Firth offshore wind (Beatrice/Moray East)
+firth_of_forth,56.60,-1.90,0.6,0,0,Firth of Forth offshore wind (Seagreen/Neart na Gaoithe)
+dogger_hornsea,54.30,1.90,1.4,0,0,Dogger Bank and Hornsea offshore wind
+east_anglia,52.70,2.20,0.8,0,0,East Anglia offshore wind
+irish_sea,54.00,-3.60,0.6,0,0,Irish Sea offshore wind (Walney/West of Duddon)
+cambridgeshire,52.30,0.10,0,1.0,0,East of England solar
+wiltshire,51.20,-2.20,0,1.0,0,South West solar belt
+kent,51.20,0.80,0,0.8,0,Kent solar
+cornwall,50.40,-4.80,0,0.6,0,Cornwall and Devon solar
+london,51.51,-0.13,0,0,0.45,Population-weighted temperature: London
+birmingham,52.48,-1.90,0,0,0.20,Population-weighted temperature: Midlands
+manchester,53.48,-2.24,0,0,0.20,Population-weighted temperature: North West
+glasgow,55.86,-4.25,0,0,0.15,Population-weighted temperature: Scotland

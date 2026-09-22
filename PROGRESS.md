@@ -7,8 +7,8 @@ _No blockers._ The remote `origin` is `https://github.com/ssabeeth/electricity.g
 | Phase | Status | Tag |
 |---|---|---|
 | 1. Scaffold | done | `v0.1-scaffold` |
-| 2. Ingestion | next | |
-| 3. dbt | | |
+| 2. Ingestion | done | `v0.2-ingestion` |
+| 3. dbt | next | |
 | 4. Modelling | | |
 | 5. Battery simulation | | |
 | 6. Orchestration | | |
@@ -46,3 +46,32 @@ Environment notes:
 - LightGBM on macOS needs `brew install libomp`.
 
 Next: Phase 2, ingestion.
+
+### Phase 2 — Ingestion (2026-09-22)
+
+Done:
+- `elecprice.ingest` has eight datasets from four sources behind one chunked,
+  cached, idempotent runner (`elec ingest [source|source/name] --start --end`).
+- Retries use exponential backoff with jitter on connection errors, 429s and
+  5xx responses. Chunk failures are logged and reported; they don't abort the
+  run, and the CLI exits non-zero if any chunk failed.
+- Full history ingested from 2023-09-01 to 2026-09-22, about 33MB of raw cache
+  and 31MB of Parquet:
+
+  | dataset | rows |
+  |---|---|
+  | elexon/mid | 54k |
+  | elexon/demand_outturn | 54k |
+  | elexon/fuelhh | 1.06M |
+  | elexon/ndf (vintages) | 688k |
+  | elexon/windfor (vintages) | 575k |
+  | neso/embedded_forecast (vintages) | 1.38M |
+  | openmeteo/weather_forecast (vintages, 15 locations) | 698k |
+  | carbon/intensity | 54k |
+
+- Found and handled two NESO timezone issues: `Forecast_Datetime` is UK local
+  time, and the format changed on 2026-06-13 (see DECISIONS.md).
+- Tests cover chunk alignment, skip / refresh / cache-rebuild / force behaviour,
+  failure isolation, horizon clipping, every normaliser (with real trimmed
+  payloads), the NESO timezone handling and Open-Meteo availability stamps.
+  Live smoke tests are marked `network` and excluded from CI.

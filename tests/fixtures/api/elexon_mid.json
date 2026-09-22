@@ -1,0 +1,36 @@
+{
+ "data": [
+  {
+   "startTime": "2024-03-25T00:00:00Z",
+   "dataProvider": "APXMIDP",
+   "settlementDate": "2024-03-25",
+   "settlementPeriod": 1,
+   "price": 60.86,
+   "volume": 989.7
+  },
+  {
+   "startTime": "2024-03-24T23:30:00Z",
+   "dataProvider": "APXMIDP",
+   "settlementDate": "2024-03-24",
+   "settlementPeriod": 48,
+   "price": 70.13,
+   "volume": 857.05
+  },
+  {
+   "startTime": "2024-03-24T23:00:00Z",
+   "dataProvider": "APXMIDP",
+   "settlementDate": "2024-03-24",
+   "settlementPeriod": 47,
+   "price": 70.62,
+   "volume": 815.3
+  },
+  {
+   "startTime": "2024-03-24T22:30:00Z",
+   "dataProvider": "APXMIDP",
+   "settlementDate": "2024-03-24",
+   "settlementPeriod": 46,
+   "price": 71.9,
+   "volume": 1963.65
+  }
+ ]
+}

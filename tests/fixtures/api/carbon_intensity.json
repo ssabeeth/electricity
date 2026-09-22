@@ -1,0 +1,31 @@
+{
+ "data": [
+  {
+   "from": "2024-02-25T23:30Z",
+   "to": "2024-02-26T00:00Z",
+   "intensity": {
+    "forecast": 80,
+    "actual": 72,
+    "index": "low"
+   }
+  },
+  {
+   "from": "2024-02-26T00:00Z",
+   "to": "2024-02-26T00:30Z",
+   "intensity": {
+    "forecast": 75,
+    "actual": 78,
+    "index": "low"
+   }
+  },
+  {
+   "from": "2024-02-26T00:30Z",
+   "to": "2024-02-26T01:00Z",
+   "intensity": {
+    "forecast": 72,
+    "actual": 75,
+    "index": "low"
+   }
+  }
+ ]
+}

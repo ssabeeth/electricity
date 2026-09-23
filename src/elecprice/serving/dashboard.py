@@ -4,6 +4,8 @@
 
 Set ELEC_API_URL to the API base URL (default http://localhost:8000), or to
 ``inprocess`` to call the API app directly without running a server.
+ELEC_RECORD_REPO points the track-record links at the GitHub repository that
+publishes the record (its ``track-record`` branch).
 """
 
 from __future__ import annotations
@@ -16,12 +18,19 @@ import plotly.graph_objects as go
 import streamlit as st
 
 API_URL = os.environ.get("ELEC_API_URL", "http://localhost:8000")
+RECORD_REPO = os.environ.get("ELEC_RECORD_REPO", "https://github.com/ssabeeth/electricity")
+RECORD_BRANCH = "track-record"
 BLUE, GREY, BLACK, ORANGE = "#2a6fdb", "#9a9a9a", "#1b1b1b", "#d9822b"
 STRATEGY_COLORS = {
     "perfect_foresight": BLACK,
     "forecast_lgbm": BLUE,
     "forecast_naive": GREY,
     "naive_fixed": ORANGE,
+}
+STRATEGY_NAMES = {
+    "perfect_foresight": "Perfect foresight (upper bound)",
+    "forecast_lgbm": "Scheduled on the LightGBM forecast",
+    "forecast_naive": "Scheduled on the seasonal-naive forecast",
 }
 
 
@@ -137,6 +146,14 @@ def page_forecast() -> None:
         cutoff = to_uk(pd.Series([fc["cutoff_utc"]])).iloc[0]
         st.caption(
             f"Decision cutoff: {cutoff:%a %d %b %Y %H:%M} UK. Nothing issued later was used."
+        )
+    if fc["source"] == "live":
+        path = f"forecasts/{d}.csv"
+        blob = f"{RECORD_REPO}/blob/{RECORD_BRANCH}/{path}"
+        history = f"{RECORD_REPO}/commits/{RECORD_BRANCH}/{path}"
+        st.caption(
+            f"Published in the track record as [{path}]({blob}); its [history]({history}) "
+            "shows it was committed before the day began."
         )
     st.plotly_chart(fan_chart(fc["points"], fc["baseline"], f"{label} for {d}"), width="stretch")
     schedules = api(f"/simulation/schedule/{d}") or []
@@ -300,22 +317,96 @@ def page_battery() -> None:
         )
 
 
-def page_live() -> None:
+def _pooled(fd: pd.DataFrame, model: str, col: str) -> float:
+    """A per-day metric pooled over half-hours: each day weighted by its priced periods."""
+    g = fd[fd["model"] == model]
+    return float((g[col] * g["n"]).sum() / g["n"].sum())
+
+
+def page_track_record() -> None:
+    record = f"{RECORD_REPO}/tree/{RECORD_BRANCH}"
+    st.markdown(
+        f"Every live forecast is committed to the [public track record]({record}) before its "
+        "delivery day begins, by a model frozen before the record started, and scored here "
+        "once Elexon publishes the actual prices. Nothing in the record is edited afterwards, "
+        "so unlike the backtest it cannot have been tuned with hindsight."
+    )
     live = api("/live/metrics") or {"forecast_daily": [], "battery_daily": []}
     if not live["forecast_daily"]:
         st.info(
-            "No live days settled yet. Live monitoring starts at deployment; historical "
-            "performance comes only from the walk-forward backtest (no in-sample back-fill)."
+            "No days settled yet. The first forecast is scored the day after its delivery day, "
+            "once actual prices are in. Historical performance comes only from the walk-forward "
+            "backtest; nothing is back-filled into the record."
         )
         return
     fd = pd.DataFrame(live["forecast_daily"])
-    st.subheader("Live forecast accuracy")
-    st.dataframe(
-        fd[["settlement_date", "model", "pinball_mean", "mae_p50", "coverage"]], hide_index=True
+    fd["settlement_date"] = pd.to_datetime(fd["settlement_date"])
+    bd = pd.DataFrame(live["battery_daily"])
+    lg_cov = _pooled(fd, "lgbm_quantile", "coverage")
+    skill = 1 - _pooled(fd, "lgbm_quantile", "pinball_mean") / _pooled(
+        fd, "seasonal_naive", "pinball_mean"
     )
-    if live["battery_daily"]:
-        st.subheader("Live battery P&L")
-        st.dataframe(pd.DataFrame(live["battery_daily"]), hide_index=True)
+    days = fd.loc[fd["model"] == "lgbm_quantile", "settlement_date"].nunique()
+
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Days settled", f"{days}")
+    c2.metric("P10-P90 coverage", f"{lg_cov:.1%}", "nominal 80%", delta_color="off")
+    c3.metric("Pinball skill vs baseline", f"{skill:.0%}")
+    if not bd.empty:
+        totals = bd.groupby("strategy")["net_gbp"].sum()
+        c4.metric("Forecast-driven battery £", f"£{totals.get('forecast_lgbm', 0):,.0f}")
+        if totals.get("perfect_foresight", 0) > 0:
+            share = totals.get("forecast_lgbm", 0) / totals["perfect_foresight"]
+            c4.caption(f"{share:.0%} of perfect foresight")
+
+        bd["settlement_date"] = pd.to_datetime(bd["settlement_date"])
+        fig = go.Figure()
+        for strategy, g in bd.sort_values("settlement_date").groupby("strategy"):
+            fig.add_trace(
+                go.Scatter(
+                    x=g["settlement_date"],
+                    y=g["net_gbp"].cumsum(),
+                    mode="lines+markers",
+                    name=STRATEGY_NAMES.get(strategy, strategy),
+                    line={
+                        "color": STRATEGY_COLORS.get(strategy, GREY),
+                        "width": 2.5 if strategy == "forecast_lgbm" else 1.4,
+                    },
+                )
+            )
+        fig.update_layout(
+            title="Cumulative net battery revenue since the record began",
+            yaxis_title="£",
+            height=380,
+            legend={"orientation": "h", "y": -0.2},
+        )
+        st.plotly_chart(fig, width="stretch")
+
+    lg = fd[fd["model"] == "lgbm_quantile"].sort_values("settlement_date")
+    cum = (lg["coverage"] * lg["n"]).cumsum() / lg["n"].cumsum()
+    fig = go.Figure()
+    fig.add_trace(
+        go.Bar(x=lg["settlement_date"], y=lg["coverage"], name="Daily", marker_color=BLUE)
+    )
+    fig.add_trace(
+        go.Scatter(x=lg["settlement_date"], y=cum, name="Since the start", line={"color": BLACK})
+    )
+    fig.add_hline(y=0.8, line_dash="dash", annotation_text="nominal 80%")
+    fig.update_layout(
+        title="Share of half-hours inside the P10-P90 interval",
+        height=320,
+        yaxis={"tickformat": ".0%", "range": [0, 1]},
+        legend={"orientation": "h", "y": -0.2},
+    )
+    st.plotly_chart(fig, width="stretch")
+
+    with st.expander("Every settled day"):
+        st.dataframe(
+            fd[["settlement_date", "model", "pinball_mean", "mae_p50", "coverage", "n"]],
+            hide_index=True,
+        )
+        if not bd.empty:
+            st.dataframe(bd, hide_index=True)
 
 
 def main() -> None:
@@ -333,15 +424,15 @@ def main() -> None:
         return
     if health and health["status"] != "ok":
         st.warning(f"Some outputs are missing: {health['outputs']}")
-    tabs = st.tabs(["Latest forecast", "Backtest", "Battery £", "Live monitoring"])
+    tabs = st.tabs(["Latest forecast", "Track record", "Backtest", "Battery £"])
     with tabs[0]:
         page_forecast()
     with tabs[1]:
-        page_backtest()
+        page_track_record()
     with tabs[2]:
-        page_battery()
+        page_backtest()
     with tabs[3]:
-        page_live()
+        page_battery()
     with st.sidebar:
         st.markdown("### About")
         st.markdown(
@@ -349,7 +440,8 @@ def main() -> None:
             "- Features: point-in-time forecasts (NESO demand and wind, embedded solar, "
             "ICON weather as issued)\n"
             "- Models: LightGBM quantile regression vs a seasonal naive baseline\n"
-            f"- API: {API_URL}/docs"
+            f"- Live record: [{RECORD_BRANCH} branch]({RECORD_REPO}/tree/{RECORD_BRANCH})\n"
+            f"- Code: [{RECORD_REPO.removeprefix('https://')}]({RECORD_REPO})"
         )
 
 

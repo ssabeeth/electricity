@@ -1,0 +1,12 @@
+# Only what the hosted dashboard imports. Community Cloud prefers this file over
+# the repository's pyproject.toml and uv.lock because it sits beside the entry point.
+streamlit>=1.39
+plotly>=5.24
+pandas>=2.2
+pyarrow>=17
+numpy>=1.26
+fastapi>=0.115
+httpx>=0.27
+pydantic>=2.8
+pyyaml>=6.0
+pulp>=2.9

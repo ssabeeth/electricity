@@ -432,3 +432,58 @@ small, because NESO's forecasts carry the weather signal. The dangerous leak is
 realised system outturn, which sits in the same Elexon API as the forecasts. The
 observed-weather archive was downloaded for this experiment only, cached under
 `data/raw/experiments/`, and is not an input to any pipeline model.
+
+## 2026-09-24 — Free hosting and a public live track record
+
+**Options for hosting:** (a) the full stack on a paid VPS (about £8-12 a month);
+(b) the full stack on Oracle Cloud Always Free (2 ARM cores, 12 GB since the June
+2026 cut; card required; idle reclamation and capacity limits); (c) a free
+split: GitHub Actions runs the daily pipeline and Streamlit Community Cloud
+serves the dashboard, while Airflow and MLflow stay local.
+
+**Decision:** (c), with (a) and (b) still documented in `docs/deploy_vps.md`.
+What a reviewer can check from a public link is the forecast, not the
+orchestrator, so the free option keeps the part that matters. Airflow and the
+weekly champion/challenger retrain remain the production design and run under
+`make up`.
+
+**A public track record, and why it is built this way.** A walk-forward backtest,
+however careful, can always be accused of being tuned in hindsight. A forecast
+published before its delivery day cannot. The daily job therefore:
+
+- **forecasts with a frozen model**: the champion exported once (`elec
+  export-model`), published as release `model-v1` with a SHA-256 per file, and
+  checked by the workflow before use. It is not retrained during the record, so
+  no recorded day was ever in its training data. Retraining in Actions would need
+  the full history and the registry to persist between runs, and would blur the
+  claim; a new model is a new release and a visible change in the record.
+- **writes to an append-only branch**: one CSV per delivery day under
+  `forecasts/` and `schedules/`, written once. `record_day` refuses a forecast
+  made at or after the start of its delivery day, and the workflow's commit step
+  fails if anything published would be modified or deleted. Commits come only
+  from `github-actions[bot]` and link to the run, because local commit dates can
+  be set to anything and a GitHub-run timestamp cannot. CSV, not Parquet, so the
+  record can be read on GitHub.
+- **schedules the battery from both forecasts** (LightGBM and seasonal naive)
+  before the day, so the live record measures the value of the better forecast
+  the same way the backtest does, against perfect foresight.
+- **scores are derived data**: recomputed each run from the record and the
+  published prices, pooled over half-hours rather than averaged over days.
+
+**Verified, not assumed.** A daily run rebuilds data from scratch on a fresh
+runner, so it only ingests the last 200 days. Checked on 2026-09-23: from an
+empty data directory, ingesting 200 days took about 80 seconds and `dbt build`
+4 seconds. Built from that 200-day window, `mart_features` and the resulting
+forecasts for 19-21 September matched the full three-year warehouse exactly
+(no differing feature columns; maximum P50 difference 0.0). A frozen export
+reproduces the registry model's forecasts exactly (tested).
+
+**Timing.** The workflow runs at 09:20 UTC: 10:20 UK in summer and 09:20 in
+winter, after the 09:00 cutoff either way. A run before the cutoff settles past
+days and skips the forecast.
+
+**The dashboard on Community Cloud** runs `deploy/streamlit/streamlit_app.py`,
+which downloads the `track-record` branch at most hourly and serves the existing
+dashboard with the API in-process. It never needs redeploying for new data. Its
+`requirements.txt` sits beside the entry point so Community Cloud uses it instead
+of `uv.lock`; the dashboard does not need MLflow, dbt or LightGBM.

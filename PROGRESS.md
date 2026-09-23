@@ -1,11 +1,15 @@
 # Progress
 
-**Status: all ten phases complete and merged to `main` (tag `v1.0`). No blockers.**
+**Status: all ten phases complete (tag `v1.0`), plus phase 11, the free hosted
+track record (tag `v1.1-track-record`). No blockers.**
 The remote `origin` is `https://github.com/ssabeeth/electricity.git`.
 
 **What only the owner can do.** Each of these costs money or needs the owner's
 credentials, and none has been done:
 
+0. **Deploy the free dashboard.** One click on Streamlit Community Cloud,
+   steps in `docs/deploy_streamlit.md`. The daily track-record workflow already
+   runs without it.
 1. **Deploy to a VPS.** Provision a 4-8 GB Ubuntu 24.04 machine, point DNS at
    it, and follow `docs/deploy_vps.md`. The configuration is validated in CI;
    start it with `make prod-up`.
@@ -36,6 +40,7 @@ the local MLflow store and the outputs.
 | 8. Containerise | done | `v0.8-containerise` |
 | 9. Deployment prep | done | `v0.9-deployment-prep` |
 | 10. README | done | `v1.0` |
+| 11. Live track record and free hosting | done; dashboard deploy is the owner's click | `v1.1-track-record` |
 
 ## Log
 
@@ -349,3 +354,27 @@ Final headline numbers:
   £42,162, 72.8% of perfect foresight's £57,940. The naive-forecast schedule
   earns £27,036 (46.7%), and the fixed rule £2,450. The better forecast is
   worth about £9.7k per MW per year.
+
+### Phase 11 — Live track record and free hosting (2026-09-24)
+
+Done:
+- `elec export-model` freezes the champion with a SHA-256 per file; published as
+  release `model-v1` (version 1, trained through 2026-09-21).
+- `elecprice.pipeline.track_record`: the append-only record (one CSV per delivery
+  day, written once, refused if made after delivery began), its load into the
+  Parquet outputs, pooled scores and the branch README.
+- `elec track-record daily`: forecast tomorrow once, settle past days, update
+  scores. It skips the forecast if run before the cutoff.
+- The live pipeline now also schedules the battery from the seasonal-naive
+  forecast, and settles every strategy against perfect foresight.
+- `.github/workflows/track-record.yml` runs daily at 09:20 UTC and commits to the
+  `track-record` branch; the commit step refuses to modify a published forecast.
+  CI ignores that branch.
+- Dashboard: a Track record tab (coverage, pinball skill, cumulative £) and
+  provenance links on live forecasts. `deploy/streamlit/` is the Community Cloud
+  entry point, with its own minimal requirements.
+- Verified: a cold 200-day ingest takes about 80 s; features and forecasts from
+  that window match the full history exactly; the hosted dashboard runs from its
+  minimal requirements with no exceptions.
+
+Next: the owner deploys the dashboard (docs/deploy_streamlit.md).

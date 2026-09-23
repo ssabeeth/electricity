@@ -7,9 +7,8 @@ The remote `origin` is `https://github.com/ssabeeth/electricity.git`.
 **What only the owner can do.** Each of these costs money or needs the owner's
 credentials, and none has been done:
 
-0. **Deploy the free dashboard.** One click on Streamlit Community Cloud,
-   steps in `docs/deploy_streamlit.md`. The daily track-record workflow already
-   runs without it.
+0. **Deploy the free dashboard.** Done 2026-09-24:
+   [ukelectricity.streamlit.app](https://ukelectricity.streamlit.app).
 1. **Deploy to a VPS.** Provision a 4-8 GB Ubuntu 24.04 machine, point DNS at
    it, and follow `docs/deploy_vps.md`. The configuration is validated in CI;
    start it with `make prod-up`.
@@ -40,7 +39,7 @@ the local MLflow store and the outputs.
 | 8. Containerise | done | `v0.8-containerise` |
 | 9. Deployment prep | done | `v0.9-deployment-prep` |
 | 10. README | done | `v1.0` |
-| 11. Live track record and free hosting | done; dashboard deploy is the owner's click | `v1.1-track-record` |
+| 11. Live track record and free hosting | done; dashboard live at ukelectricity.streamlit.app | `v1.1-track-record` |
 
 ## Log
 
@@ -381,4 +380,4 @@ Done:
   that window match the full history exactly; the hosted dashboard runs from its
   minimal requirements with no exceptions.
 
-Next: the owner deploys the dashboard (docs/deploy_streamlit.md).
+The owner deployed the dashboard at https://ukelectricity.streamlit.app.

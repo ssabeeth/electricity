@@ -1,6 +1,10 @@
 # GB Day-Ahead Electricity Price Forecasting
 
 [![CI](https://github.com/ssabeeth/electricity/actions/workflows/ci.yml/badge.svg)](https://github.com/ssabeeth/electricity/actions/workflows/ci.yml)
+[![track-record](https://github.com/ssabeeth/electricity/actions/workflows/track-record.yml/badge.svg)](https://github.com/ssabeeth/electricity/actions/workflows/track-record.yml)
+
+**Live dashboard: [ukelectricity.streamlit.app](https://ukelectricity.streamlit.app)** ·
+**Live track record: [`track-record` branch](https://github.com/ssabeeth/electricity/tree/track-record)**
 
 A production-style pipeline that forecasts the next day's **half-hourly GB
 electricity price** as P10 / P50 / P90. Every forecast uses only information
@@ -31,7 +35,8 @@ carries the running totals: coverage, pinball skill against the baseline, and
 cumulative battery £ against perfect foresight.
 
 It runs for free: GitHub Actions for the pipeline and Streamlit Community Cloud
-for the dashboard. See [docs/deploy_streamlit.md](docs/deploy_streamlit.md).
+for the [dashboard](https://ukelectricity.streamlit.app). See
+[docs/deploy_streamlit.md](docs/deploy_streamlit.md).
 
 ## Results
 

@@ -358,13 +358,17 @@ Final headline numbers:
 ### Phase 11 — Live track record and free hosting (2026-09-24)
 
 Done:
-- `elec export-model` freezes the champion with a SHA-256 per file; published as
-  release `model-v1` (version 1, trained through 2026-09-21).
+- `elec export-model` exports the champion with a SHA-256 per file; published as
+  release `model-v1` (trained through 2026-09-21), which serves September.
+- Monthly refit, the backtest's protocol: the first forecast of each month is
+  made by a model trained on every day up to D-2, published as `model-YYYY-MM`
+  before the record cites it. `models.json` on the branch lists every model.
 - `elecprice.pipeline.track_record`: the append-only record (one CSV per delivery
   day, written once, refused if made after delivery began), its load into the
   Parquet outputs, pooled scores and the branch README.
-- `elec track-record daily`: forecast tomorrow once, settle past days, update
-  scores. It skips the forecast if run before the cutoff.
+- `elec track-record plan` / `daily`: plan which model to fetch and whether to
+  refit; refit if a month starts; forecast tomorrow once; settle past days;
+  update scores. It skips the forecast if run before the cutoff.
 - The live pipeline now also schedules the battery from the seasonal-naive
   forecast, and settles every strategy against perfect foresight.
 - `.github/workflows/track-record.yml` runs daily at 09:20 UTC and commits to the

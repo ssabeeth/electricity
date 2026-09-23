@@ -19,14 +19,16 @@ results, and the whole stack runs from one `make up`.
 ## Live track record
 
 Every morning since 24 September 2026, a GitHub Actions job forecasts the next
-day with a model frozen before the record began. It commits the forecast and
-the battery schedules to the
+day. It commits the forecast and the battery schedules to the
 [`track-record` branch](https://github.com/ssabeeth/electricity/tree/track-record)
 **before the delivery day starts**, and scores them once Elexon publishes the
 prices. Nothing published there is ever edited, so unlike the backtest below it
-cannot have been tuned with hindsight. The branch's README carries the running
-totals: coverage, pinball skill against the baseline, and cumulative battery £
-against perfect foresight.
+cannot have been tuned with hindsight. The model is refitted at the start of
+each month on every day up to two days before, the backtest's own protocol, so
+the live numbers test the backtest's claims directly. Each model is published
+as a hashed release and named in every forecast it makes. The branch's README
+carries the running totals: coverage, pinball skill against the baseline, and
+cumulative battery £ against perfect foresight.
 
 It runs for free: GitHub Actions for the pipeline and Streamlit Community Cloud
 for the dashboard. See [docs/deploy_streamlit.md](docs/deploy_streamlit.md).
@@ -146,10 +148,11 @@ schedule → settle past days.
 model has seen, promote only if its pinball loss is strictly lower, register a
 new challenger, then refresh the backtest and simulation.
 
-**Free hosting:** the same daily steps run in GitHub Actions with a frozen
-model and write to the append-only `track-record` branch; a Streamlit Community
-Cloud app reads that branch. Airflow, MLflow and the weekly retrain stay in the
-full stack. See [Live track record](#live-track-record).
+**Free hosting:** the same daily steps run in GitHub Actions, with a monthly
+refit in place of the weekly champion/challenger, and write to the append-only
+`track-record` branch; a Streamlit Community Cloud app reads that branch.
+Airflow, MLflow and the weekly retrain stay in the full stack. See
+[Live track record](#live-track-record).
 
 ## Quickstart
 
@@ -335,10 +338,10 @@ GitHub Actions runs five jobs on every push. `main` is only ever merged green.
   and [docs/deploy_vps.md](docs/deploy_vps.md).
 - **The P50 drives the battery**, not the full distribution. A risk-aware
   schedule using P10/P90 is a natural next step.
-- **The hosted track record uses a frozen model.** It is not retrained while
-  the record runs, which keeps the record clean but means it measures a model
-  that ages. The weekly champion/challenger retrain runs only in the full
-  stack. A GitHub cron run can be late, and a missed day stays a gap.
+- **The hosted track record refits monthly**, as the backtest did, rather than
+  running the weekly champion/challenger, which needs the MLflow registry and
+  runs only in the full stack. A GitHub cron run can be late, and a missed day
+  stays a gap.
 
 ## Further reading
 

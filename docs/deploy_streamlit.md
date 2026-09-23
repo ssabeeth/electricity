@@ -9,9 +9,9 @@ leaves Airflow and MLflow to `make up` on a laptop.
 GitHub Actions, daily 09:20 UTC                     Streamlit Community Cloud
   ingest last 200 days  ─┐                            deploy/streamlit/streamlit_app.py
   dbt build (PIT test)   │                              downloads the track-record branch
-  forecast D+1 (frozen)  ├─► track-record branch ──►    (at most hourly), loads it into the
-  battery schedules      │   forecasts/, schedules/,     output layout, and serves the normal
-  settle past days      ─┘   scores/, README.md          dashboard with the API in-process
+  refit (a new month)    ├─► track-record branch ──►    (at most hourly), loads it into the
+  forecast D+1, schedule │   forecasts/, schedules/,     output layout, and serves the normal
+  settle past days      ─┘   scores/, models.json        dashboard with the API in-process
 ```
 
 Nothing costs money. No secrets are needed: every data source is keyless, and the
@@ -26,10 +26,14 @@ workflow uses the repository's own `GITHUB_TOKEN`.
   `github-actions[bot]`, with a link to the run that made it, before its delivery
   day begins. The commit step fails rather than change or delete a published
   forecast.
-- **Release `model-v1`**: the frozen champion (`model.tar.gz`), exported with
-  `elec export-model`. `export.json` inside it records the version, the last
-  training day and a SHA-256 of every file, and the workflow checks those hashes
-  before forecasting.
+- **Model releases**: `model-v1` is the champion exported with
+  `elec export-model`, and serves September 2026. At the first forecast of each
+  later month the workflow refits on every delivery day up to two days before
+  (the backtest's protocol), publishes the result as `model-YYYY-MM`, and only
+  then commits forecasts that cite it. `export.json` in each `model.tar.gz`
+  records the training window and a SHA-256 of every file, and the workflow
+  checks those hashes before forecasting. `models.json` on the branch lists
+  every model used.
 
 ## Deploy the dashboard (the one step that needs your account)
 
@@ -69,16 +73,12 @@ ELEC_MODEL_DIR=/path/to/model uv run elec track-record daily --record ../record
 ELEC_RECORD_DIR=../record uv run streamlit run deploy/streamlit/streamlit_app.py
 ```
 
-## Replacing the model
+## Changing the model
 
-The record says which model made every forecast, so a new model is a new
-chapter rather than a silent swap:
-
-1. `uv run elec export-model --out model-v2` and `tar -czf model.tar.gz -C model-v2 .`
-2. Create release `model-v2` with that file.
-3. Change `MODEL_RELEASE` in the workflow. `model.json` on the branch then
-   records the new version, and each forecast file already names the version
-   that produced it.
+Refits happen by themselves. To change the method itself (features or
+`configs/model.yaml`), change the code: the next monthly refit uses it, and
+`models.json` shows the boundary. Do not replace a published release; publish
+a new one, because forecasts already cite the old one by name.
 
 ## Things to know
 
@@ -89,3 +89,4 @@ chapter rather than a silent swap:
   without repository activity. If that happens, re-enable it from the Actions tab.
 - **The API cache is a courtesy, not a dependency.** A cold run ingests 200 days
   from the four APIs in about 80 seconds, so an evicted cache only costs time.
+  A refit day ingests the full history and takes several minutes longer.

@@ -35,7 +35,7 @@ workflow uses the repository's own `GITHUB_TOKEN`.
   checks those hashes before forecasting. `models.json` on the branch lists
   every model used.
 
-## Deploy the dashboard (the one step that needs your account)
+## Deploy the dashboard (done; kept for redeploying)
 
 1. Go to [share.streamlit.io](https://share.streamlit.io) and sign in with GitHub.
 2. **Create app** → **Deploy a public app from GitHub**, then fill in:
@@ -51,7 +51,7 @@ Community Cloud installs `deploy/streamlit/requirements.txt`, not the project's
 precedence. That file carries only what the dashboard imports: no MLflow, dbt or
 LightGBM.
 
-Once it is live, add the URL to the top of the README.
+The deployed app is [ukelectricity.streamlit.app](https://ukelectricity.streamlit.app).
 
 ## Optional hardening
 

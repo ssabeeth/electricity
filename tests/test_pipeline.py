@@ -100,12 +100,23 @@ def test_champion_challenger_and_daily_pipeline_end_to_end(
     assert len(fc) == 2 * 48
     assert (fc["p10"] <= fc["p50"]).all() and (fc["p50"] <= fc["p90"]).all()
     sched = live.schedule_day(date(2024, 4, 7))
-    assert len(sched) == 48
+    assert sched.groupby("strategy").size().to_dict() == {"forecast_lgbm": 48, "forecast_naive": 48}
     counts = live.monitor(lookback_days=100000)
     assert counts == {"forecast_days": 1, "battery_days": 1}
     daily = pd.read_parquet(tmp_path / "outputs" / "live" / "battery_daily.parquet")
-    pf = daily.set_index("strategy").loc["perfect_foresight", "net_gbp"]
-    assert pf >= daily.set_index("strategy").loc["forecast_lgbm", "net_gbp"] - 1e-6
+    net = daily.set_index("strategy")["net_gbp"]
+    assert set(net.index) == {"perfect_foresight", "forecast_lgbm", "forecast_naive"}
+    assert net["perfect_foresight"] >= net[["forecast_lgbm", "forecast_naive"]].max() - 1e-6
+
+    # A frozen export forecasts exactly as the registry model does, without MLflow.
+    meta = tracking.export_registered(tmp_path / "frozen")
+    assert meta["version"] == str(champion_now)
+    assert meta["sha256"] and all(len(h) == 64 for h in meta["sha256"].values())
+    monkeypatch.setenv("ELEC_MODEL_DIR", str(tmp_path / "frozen"))
+    frozen = live.forecast_day(date(2024, 4, 7))
+    cols = ["p10", "p50", "p90"]
+    assert (frozen[cols].to_numpy() == fc[cols].to_numpy()).all()
+    assert set(frozen["model_version"]) == {str(champion_now), "baseline"}
 
     with pytest.raises(RuntimeError, match="No feature rows"):
         live.forecast_day(date(2024, 4, 20))  # outside the fixture calendar

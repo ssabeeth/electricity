@@ -88,36 +88,26 @@ def load_registered(alias: str = CHAMPION) -> tuple[QuantileLGBM, str]:
     return pyfunc.unwrap_python_model().model, mv.version
 
 
-def export_registered(out_dir: Path, alias: str = CHAMPION) -> dict:
+def export_registered(out_dir: Path, alias: str = CHAMPION, release: str | None = None) -> dict:
     """Freeze the model behind ``alias`` into ``out_dir``, loadable without MLflow.
 
-    Writes the model files plus ``export.json`` (version, training cut-off and a
-    SHA-256 of every file), which is what the public track record cites.
+    ``release`` names the export (default ``model-v<registry version>``). The month
+    it was exported in is the first month it serves in the public track record.
     """
-    import hashlib
-    import json
     from datetime import UTC, datetime
 
-    from elecprice.modelling.models import save_model
+    from elecprice.modelling.models import export_model
 
     client = MlflowClient()
     mv = client.get_model_version_by_alias(REGISTERED_MODEL, alias)
     model, version = load_registered(alias)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    save_model(model, out_dir)
-    files = {
-        str(p.relative_to(out_dir)): hashlib.sha256(p.read_bytes()).hexdigest()
-        for p in sorted(out_dir.rglob("*"))
-        if p.is_file() and p.name != "export.json"
-    }
-    meta = {
-        "registered_model": REGISTERED_MODEL,
-        "alias": alias,
-        "version": str(version),
-        "run_id": mv.run_id,
-        "trained_through": mv.tags.get("trained_through"),
-        "exported_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "sha256": files,
-    }
-    (out_dir / "export.json").write_text(json.dumps(meta, indent=2) + "\n")
-    return meta
+    return export_model(
+        model,
+        out_dir,
+        release=release or f"model-v{version}",
+        month=datetime.now(UTC).strftime("%Y-%m"),
+        registered_model=REGISTERED_MODEL,
+        registry_version=str(version),
+        run_id=mv.run_id,
+        trained_through=mv.tags.get("trained_through"),
+    )

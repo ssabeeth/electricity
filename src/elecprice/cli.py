@@ -176,8 +176,8 @@ def cmd_export_model(args: argparse.Namespace) -> int:
     from elecprice.modelling.runner import TRAINING_EXPERIMENT
 
     tracking.configure(TRAINING_EXPERIMENT)
-    meta = tracking.export_registered(Path(args.out), alias=args.alias)
-    print(json.dumps({k: meta[k] for k in ("version", "trained_through", "exported_at")}))
+    meta = tracking.export_registered(Path(args.out), alias=args.alias, release=args.release)
+    print(json.dumps({k: meta[k] for k in ("release", "month", "trained_through")}))
     return 0
 
 
@@ -187,10 +187,19 @@ def cmd_track_record(args: argparse.Namespace) -> int:
     from elecprice.pipeline import track_record
 
     record = Path(args.record)
-    if args.action == "daily":
+    if args.action == "plan":
+        from elecprice.pipeline.record_run import plan
+
+        # key=value lines, ready to append to $GITHUB_OUTPUT
+        for key, value in plan(record).items():
+            print(f"{key}={str(value).lower() if isinstance(value, bool) else value}")
+    elif args.action == "daily":
         from elecprice.pipeline.record_run import run
 
-        print(json.dumps(run(record, args.repo_url, args.date), default=str))
+        result = json.dumps(run(record, args.repo_url, args.date), default=str)
+        if args.summary:
+            Path(args.summary).write_text(result + "\n")
+        print(result)
     elif args.action == "materialise":
         print(track_record.materialise(record, get_settings().outputs_dir))
     elif args.action == "readme":
@@ -275,18 +284,22 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("export-model", help="Freeze a registered model to a directory")
     p.add_argument("--out", required=True, help="directory to write the model and export.json")
     p.add_argument("--alias", default="champion")
+    p.add_argument("--release", help="name for the export (default: model-v<registry version>)")
     p.set_defaults(handler=cmd_export_model)
 
     p = sub.add_parser("track-record", help="Maintain the public, append-only forecast record")
     p.add_argument(
         "action",
-        choices=["daily", "materialise", "readme"],
-        help="daily: forecast tomorrow once, settle past days, update scores and README; "
-        "materialise: load the record into the Parquet outputs; readme: rebuild README.md",
+        choices=["plan", "daily", "materialise", "readme"],
+        help="plan: which model release today's run needs and whether it refits; "
+        "daily: refit if a new month starts, forecast tomorrow once, settle past days, "
+        "update scores and README; materialise: load the record into the Parquet outputs; "
+        "readme: rebuild README.md",
     )
     p.add_argument("--record", required=True, help="checkout of the track-record branch")
     p.add_argument("--date", type=_date, help="delivery date (default: tomorrow, UK)")
     p.add_argument("--repo-url", default="https://github.com/ssabeeth/electricity")
+    p.add_argument("--summary", help="daily: also write the result as JSON to this file")
     p.set_defaults(handler=cmd_track_record)
 
     p = sub.add_parser("load-bigquery", help="Load the Parquet lake into BigQuery raw tables")

@@ -9,9 +9,9 @@ Run by the ``elec_daily_forecast`` DAG just after the 09:00 UK cutoff:
 3. ``monitor()`` settles every past day that now has actual prices: live
    pinball / coverage / MAE, and each schedule's P&L against perfect foresight.
 
-The champion comes from the MLflow registry, or from a frozen export on disk
+The champion comes from the MLflow registry, or from an exported model on disk
 when ``ELEC_MODEL_DIR`` is set (the public track record uses one; see
-``elec export-model``).
+``elec export-model`` and ``record_run.refit``).
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from elecprice.logging_utils import get_logger
 from elecprice.modelling import tracking
 from elecprice.modelling.data import TARGET, ModelConfig, load_frame
 from elecprice.modelling.metrics import evaluate
-from elecprice.modelling.models import SeasonalNaive, load_model
+from elecprice.modelling.models import EXPORT_META, SeasonalNaive, load_model
 from elecprice.modelling.runner import TRAINING_EXPERIMENT
 from elecprice.pipeline import store
 
@@ -38,7 +38,6 @@ log = get_logger(__name__)
 KEYS = ["settlement_date", "settlement_period"]
 # Which forecast drives which battery strategy.
 SCHEDULED_MODELS = {"lgbm_quantile": "forecast_lgbm", "seasonal_naive": "forecast_naive"}
-EXPORT_META = "export.json"
 
 
 def _paths() -> dict[str, Path]:
@@ -58,18 +57,21 @@ def tomorrow_uk(now: datetime | None = None) -> date:
     return (ts.tz_convert(UK_TZ) + pd.Timedelta(days=1)).date()
 
 
-def load_champion():
-    """The champion model and its version: a frozen export if ELEC_MODEL_DIR is set."""
-    model_dir = os.environ.get("ELEC_MODEL_DIR")
+def load_champion(model_dir: Path | None = None):
+    """The model to forecast with, and its version.
+
+    An exported model directory if one is given or ELEC_MODEL_DIR is set (its
+    release name is the version); otherwise the MLflow registry's champion.
+    """
+    model_dir = model_dir or (Path(p) if (p := os.environ.get("ELEC_MODEL_DIR")) else None)
     if model_dir:
-        path = Path(model_dir)
-        meta = json.loads((path / EXPORT_META).read_text())
-        return load_model(path), str(meta["version"])
+        meta = json.loads((model_dir / EXPORT_META).read_text())
+        return load_model(model_dir), str(meta.get("release") or meta["version"])
     tracking.configure(TRAINING_EXPERIMENT)
     return tracking.load_registered(tracking.CHAMPION)
 
 
-def forecast_day(delivery_date: date | None = None) -> pd.DataFrame:
+def forecast_day(delivery_date: date | None = None, model_dir: Path | None = None) -> pd.DataFrame:
     delivery_date = delivery_date or tomorrow_uk()
     d = pd.Timestamp(delivery_date)
     config = ModelConfig.load()
@@ -85,7 +87,7 @@ def forecast_day(delivery_date: date | None = None) -> pd.DataFrame:
             f"No feature rows for {delivery_date}. Its cutoff (09:00 UK on the day before) "
             "may not have passed yet, or dbt has not been rebuilt since ingestion."
         )
-    model, version = load_champion()
+    model, version = load_champion(model_dir)
     baseline = SeasonalNaive(config.quantiles, **config.baseline).fit(
         history[history["settlement_date"] <= d - pd.Timedelta(days=2)]
     )

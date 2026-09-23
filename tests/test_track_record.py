@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-from datetime import date
+from datetime import date, timedelta
 
 import pandas as pd
 import pytest
@@ -198,55 +198,130 @@ def test_totals_are_pooled_over_half_hours(tmp_path):
     assert s["capture_vs_perfect"]["forecast_naive"] == pytest.approx(20 / 300)
 
 
-def test_readme_reports_the_totals_and_the_model(tmp_path):
+def test_readme_reports_the_totals_and_the_models(tmp_path):
     record, outputs = tmp_path / "record", tmp_path / "outputs"
     track_record.record_day(record, DAY, _forecasts(), _schedules())
     _write_scores(outputs)
     track_record.write_scores(record, outputs)
-    model = {"version": "1", "trained_through": "2026-09-21", "exported_at": "2026-09-24T00:10:00Z"}
-    text = track_record.write_readme(record, "https://example.org/repo", model)
+    models = [
+        {"release": "model-v1", "month": "2026-09", "trained_through": "2026-09-21"},
+        {
+            "release": "model-2026-10",
+            "month": "2026-10",
+            "trained_from": "2024-03-01",
+            "trained_through": "2026-09-29",
+        },
+    ]
+    text = track_record.write_readme(record, "https://example.org/repo", models)
     assert text == (record / "README.md").read_text()
-    assert "trained on delivery days up to 2026-09-21" in text
+    assert "| [model-2026-10](https://example.org/repo/releases/tag/model-2026-10) " in text
+    assert "| 2026-10 | 2024-03-01 to 2026-09-29 |" in text
     assert f"P10–P90 coverage: {59 / 94:.1%} of 94 half-hours" in text
     assert "| Scheduled on the LightGBM forecast | £150.00 | 50.0% |" in text
     assert "| Perfect foresight (upper bound) | £300.00 | — |" in text
 
 
+EXPORT_V1 = {
+    "release": "model-v1",
+    "month": "2026-09",
+    "trained_through": "2026-09-21",
+    "exported_at": "2026-09-24T00:10:00Z",
+    "sha256": {"booster_p50.txt": "abc"},
+    "run_id": "not published",
+}
+
+
+def _model_dir(tmp_path, meta=EXPORT_V1):
+    model_dir = tmp_path / "model"
+    model_dir.mkdir(exist_ok=True)
+    (model_dir / "export.json").write_text(json.dumps(meta))
+    return model_dir
+
+
+def _fake_pipeline(monkeypatch, calls):
+    def fake_forecast(d, model_dir=None):
+        calls.append(("fc", d, model_dir.name if model_dir else None))
+        return _forecasts(d)
+
+    monkeypatch.setattr(record_run, "forecast_day", fake_forecast)
+    monkeypatch.setattr(record_run, "schedule_day", lambda d: _schedules(d))
+    monkeypatch.setattr(record_run, "monitor", lambda: {"forecast_days": 0, "battery_days": 0})
+
+
 def test_daily_run_forecasts_once_then_only_settles(tmp_path, monkeypatch):
     monkeypatch.setenv("ELEC_DATA_DIR", str(tmp_path / "data"))
-    model_dir = tmp_path / "model"
-    model_dir.mkdir()
-    export = {
-        "version": "1",
-        "trained_through": "2026-09-21",
-        "exported_at": "2026-09-24T00:10:00Z",
-        "sha256": {"booster.txt": "abc"},
-        "run_id": "not published",
-    }
-    (model_dir / "export.json").write_text(json.dumps(export))
-    monkeypatch.setenv("ELEC_MODEL_DIR", str(model_dir))
+    monkeypatch.setenv("ELEC_MODEL_DIR", str(_model_dir(tmp_path)))
     calls = []
-    monkeypatch.setattr(
-        record_run, "forecast_day", lambda d: calls.append(("fc", d)) or _forecasts(d)
-    )
-    monkeypatch.setattr(
-        record_run, "schedule_day", lambda d: calls.append(("sc", d)) or _schedules(d)
-    )
-    monkeypatch.setattr(record_run, "monitor", lambda: {"forecast_days": 0, "battery_days": 0})
+    _fake_pipeline(monkeypatch, calls)
 
     record = tmp_path / "record"
     after_cutoff = pd.Timestamp("2026-09-24 09:20", tz="UTC")
     first = record_run.run(record, "https://example.org/repo", now=after_cutoff)
-    assert first["delivery_date"] == "2026-09-25"
-    assert first["recorded"] and calls == [("fc", DAY), ("sc", DAY)]
+    assert first["delivery_date"] == "2026-09-25" and first["new_release"] is None
+    assert first["recorded"] and calls == [("fc", DAY, "model")]
     second = record_run.run(record, "https://example.org/repo", now=after_cutoff)
-    assert not second["recorded"] and len(calls) == 2  # never re-forecast a published day
+    assert not second["recorded"] and len(calls) == 1  # never re-forecast a published day
 
-    published = json.loads((record / "model.json").read_text())
-    assert published == {
-        k: export[k] for k in ("version", "trained_through", "exported_at", "sha256")
-    }
+    history = json.loads((record / "models.json").read_text())
+    assert history == [{k: v for k, v in EXPORT_V1.items() if k != "run_id"}]
     assert "Days forecast: 1 (2026-09-25 to 2026-09-25)" in (record / "README.md").read_text()
+
+
+def test_a_new_month_starts_with_a_refit(tmp_path, monkeypatch):
+    monkeypatch.setenv("ELEC_DATA_DIR", str(tmp_path / "data"))
+    monkeypatch.setenv("ELEC_MODEL_DIR", str(_model_dir(tmp_path)))
+    calls = []
+    _fake_pipeline(monkeypatch, calls)
+
+    def fake_refit(day, out_dir):
+        meta = {
+            "release": f"model-{day:%Y-%m}",
+            "month": f"{day:%Y-%m}",
+            "trained_from": "2024-03-01",
+            "trained_through": str(day - timedelta(days=2)),
+            "training_rows": 1,
+            "exported_at": "x",
+            "sha256": {},
+            "method": "m",
+        }
+        calls.append(("refit", day, out_dir.name))
+        return meta
+
+    monkeypatch.setattr(record_run, "refit", fake_refit)
+    record = tmp_path / "record"
+    # 30 Sep after the cutoff: tomorrow is 1 Oct, a month model-v1 was not made for.
+    now = pd.Timestamp("2026-09-30 09:20", tz="UTC")
+    # Before any run there is no models.json; the plan still knows model-v1's month.
+    assert record_run.plan(record, now) == {
+        "delivery_date": "2026-10-01",
+        "release": "model-v1",
+        "refit": True,
+    }
+
+    out = record_run.run(record, "https://example.org/repo", now=now)
+    oct1 = date(2026, 10, 1)
+    assert out["new_release"] == "model-2026-10"
+    assert calls == [("refit", oct1, "model-2026-10"), ("fc", oct1, "model-2026-10")]
+    history = json.loads((record / "models.json").read_text())
+    assert [m["release"] for m in history] == ["model-v1", "model-2026-10"]
+    assert history[1]["trained_through"] == "2026-09-29"
+    # The next day's plan fetches the new model and does not refit again.
+    tomorrow = pd.Timestamp("2026-10-01 09:20", tz="UTC")
+    assert record_run.plan(record, tomorrow) == {
+        "delivery_date": "2026-10-02",
+        "release": "model-2026-10",
+        "refit": False,
+    }
+
+
+def test_refit_is_needed_only_for_a_later_month():
+    v1 = {"release": "model-v1", "month": "2026-09"}
+    assert not record_run.needs_refit(date(2026, 9, 30), v1)
+    assert record_run.needs_refit(date(2026, 10, 1), v1)
+    assert record_run.needs_refit(date(2026, 10, 2), v1)  # a missed 1st still refits
+    assert not record_run.needs_refit(date(2026, 10, 2), {"month": "2026-10"})
+    # Exports made before `month` existed fall back to their export date.
+    assert record_run.needs_refit(date(2026, 10, 1), {"exported_at": "2026-09-24T00:00:00Z"})
 
 
 def test_an_early_run_settles_but_waits_for_the_cutoff(tmp_path, monkeypatch):

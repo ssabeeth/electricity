@@ -110,13 +110,24 @@ def test_champion_challenger_and_daily_pipeline_end_to_end(
 
     # A frozen export forecasts exactly as the registry model does, without MLflow.
     meta = tracking.export_registered(tmp_path / "frozen")
-    assert meta["version"] == str(champion_now)
+    assert meta["release"] == f"model-v{champion_now}"
     assert meta["sha256"] and all(len(h) == 64 for h in meta["sha256"].values())
     monkeypatch.setenv("ELEC_MODEL_DIR", str(tmp_path / "frozen"))
     frozen = live.forecast_day(date(2024, 4, 7))
     cols = ["p10", "p50", "p90"]
     assert (frozen[cols].to_numpy() == fc[cols].to_numpy()).all()
-    assert set(frozen["model_version"]) == {str(champion_now), "baseline"}
+    assert set(frozen["model_version"]) == {f"model-v{champion_now}", "baseline"}
+
+    # The monthly refit trains on every day up to D-2 and forecasts D with it.
+    from elecprice.pipeline.record_run import refit
+
+    refit_meta = refit(date(2024, 4, 1), tmp_path / "refit", cfg)
+    assert refit_meta["release"] == "model-2024-04" and refit_meta["month"] == "2024-04"
+    assert refit_meta["trained_through"] == "2024-03-30"
+    served = live.forecast_day(date(2024, 4, 1), model_dir=tmp_path / "refit")
+    assert set(served["model_version"]) == {"model-2024-04", "baseline"}
+    with pytest.raises(RuntimeError, match="no rows for the day"):
+        refit(date(2024, 4, 20), tmp_path / "late", cfg)
 
     with pytest.raises(RuntimeError, match="No feature rows"):
         live.forecast_day(date(2024, 4, 20))  # outside the fixture calendar

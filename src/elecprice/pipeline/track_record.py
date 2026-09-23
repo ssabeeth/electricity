@@ -6,7 +6,7 @@ The record is a plain directory, published as the ``track-record`` branch:
     schedules/YYYY-MM-DD.csv   battery schedules set from those forecasts, written with them
     scores/forecast_daily.csv  accuracy per day, once actual prices exist
     scores/battery_daily.csv   P&L per day at actual prices, with the perfect-foresight bound
-    model.json                 the frozen model that made every forecast
+    models.json                every model used, with its training window and file hashes
     README.md                  running totals, regenerated each run
 
 Forecast and schedule files are never rewritten. A backtest can always be tuned
@@ -205,31 +205,42 @@ def summarise(root: Path) -> dict:
     return out
 
 
-def write_readme(root: Path, repo_url: str, model: dict | None = None) -> str:
+def write_readme(root: Path, repo_url: str, models: list[dict] | None = None) -> str:
     """The branch's front page: what the record is, how to check it, and the totals."""
     s = summarise(root)
-    model = model or (
-        json.loads((root / "model.json").read_text()) if (root / "model.json").exists() else {}
-    )
+    if models is None:
+        path = root / "models.json"
+        models = json.loads(path.read_text()) if path.exists() else []
     lines = [
         "# Live forecast track record",
         "",
         "Day-ahead forecasts of the GB Market Index Price, committed here **before each "
         "delivery day starts** and scored once the actual prices are published. Nothing in "
         "`forecasts/` or `schedules/` is ever edited; the workflow refuses to change a "
-        "published file, and git history is the timestamp.",
+        "published file, and each commit links to the GitHub Actions run that made it.",
         "",
         f"Code, method and backtest: [{repo_url}]({repo_url}).",
         "",
     ]
-    if model:
+    if models:
         lines += [
-            f"**Model:** version {model.get('version')}, trained on delivery days up to "
-            f"{model.get('trained_through')}, frozen on {model.get('exported_at', '')[:10]}. "
-            "It is not retrained during the record, so none of these days were ever in its "
-            "training data.",
+            "## Models",
             "",
+            "The model is refitted at the first forecast of each month on every delivery day "
+            "up to two days before, the same protocol as the walk-forward backtest. Each is "
+            "published as a release of the repository, and `forecasts/*.csv` name the one "
+            "that made them.",
+            "",
+            "| Release | Serves from | Trained on delivery days |",
+            "|---|---|---|",
         ]
+        for m in models:
+            window = f"{m.get('trained_from', '…')} to {m.get('trained_through')}"
+            lines.append(
+                f"| [{m['release']}]({repo_url}/releases/tag/{m['release']}) "
+                f"| {m.get('month', '')} | {window} |"
+            )
+        lines.append("")
     lines += [
         "## Running totals",
         "",

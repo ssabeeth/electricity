@@ -327,9 +327,10 @@ def page_track_record() -> None:
     record = f"{RECORD_REPO}/tree/{RECORD_BRANCH}"
     st.markdown(
         f"Every live forecast is committed to the [public track record]({record}) before its "
-        "delivery day begins, by a model frozen before the record started, and scored here "
-        "once Elexon publishes the actual prices. Nothing in the record is edited afterwards, "
-        "so unlike the backtest it cannot have been tuned with hindsight."
+        "delivery day begins and scored here once Elexon publishes the actual prices. The "
+        "model is refitted each month on data up to two days before, as in the backtest, and "
+        "each forecast names the published model that made it. Nothing in the record is "
+        "edited afterwards, so unlike the backtest it cannot have been tuned with hindsight."
     )
     live = api("/live/metrics") or {"forecast_daily": [], "battery_daily": []}
     if not live["forecast_daily"]:

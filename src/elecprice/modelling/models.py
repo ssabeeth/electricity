@@ -207,3 +207,33 @@ def load_model(path: Path):
 def save_model(model, path: Path) -> None:
     model.save(path)
     (path / "model_type.json").write_text(json.dumps({"model_type": model.name}))
+
+
+EXPORT_META = "export.json"
+
+
+def export_model(model, out_dir: Path, **meta: Any) -> dict:
+    """Save ``model`` with ``export.json``: ``meta`` plus a SHA-256 of every file.
+
+    An export is loadable without MLflow (``load_model``), and the hashes let a
+    reader check that a published model is the one that made a forecast.
+    """
+    import hashlib
+    import shutil
+    from datetime import UTC, datetime
+
+    shutil.rmtree(out_dir, ignore_errors=True)
+    out_dir.mkdir(parents=True)
+    save_model(model, out_dir)
+    files = {
+        str(p.relative_to(out_dir)): hashlib.sha256(p.read_bytes()).hexdigest()
+        for p in sorted(out_dir.rglob("*"))
+        if p.is_file()
+    }
+    meta = {
+        **meta,
+        "exported_at": datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "sha256": files,
+    }
+    (out_dir / EXPORT_META).write_text(json.dumps(meta, indent=2) + "\n")
+    return meta

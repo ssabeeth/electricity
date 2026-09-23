@@ -1,0 +1,106 @@
+name: track-record
+
+# The public live track record (see src/elecprice/pipeline/track_record.py).
+#
+# Every day after the 09:00 UK decision cutoff: rebuild the recent data from the
+# free APIs, run dbt (whose point-in-time test gates the forecast), forecast
+# tomorrow once with the frozen model, settle past days against actual prices,
+# and commit the result to the `track-record` branch. The commit step refuses to
+# change or delete a published forecast.
+#
+# 09:20 UTC is 10:20 UK in summer and 09:20 in winter, so the cutoff has passed
+# either way, and a run delayed by GitHub still has until midnight UK.
+
+on:
+  schedule:
+    - cron: "20 9 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: track-record
+  cancel-in-progress: false
+
+env:
+  MODEL_RELEASE: model-v1
+  ELEC_DATA_DIR: ${{ github.workspace }}/data
+  ELEC_MODEL_DIR: ${{ github.workspace }}/model
+
+jobs:
+  daily:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check out the record
+        uses: actions/checkout@v7
+        with:
+          ref: track-record
+          path: record
+
+      - uses: astral-sh/setup-uv@v10.2.0
+        with:
+          enable-cache: true
+
+      - run: uv sync --frozen --extra ml --extra dbt --no-default-groups
+
+      - name: Restore cached API responses
+        uses: actions/cache/restore@v6.1.0
+        with:
+          path: data/raw
+          key: raw-${{ github.run_id }}
+          restore-keys: raw-
+
+      - name: Download the frozen model and check its hashes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$MODEL_RELEASE" --pattern model.tar.gz --dir "$RUNNER_TEMP"
+          mkdir -p "$ELEC_MODEL_DIR"
+          tar -xzf "$RUNNER_TEMP/model.tar.gz" -C "$ELEC_MODEL_DIR"
+          cd "$ELEC_MODEL_DIR"
+          jq -r '.sha256 | to_entries[] | "\(.value)  \(.key)"' export.json | sha256sum --check
+
+      - name: Ingest the last 200 days
+        run: uv run --no-sync elec ingest --days 200
+
+      - name: dbt build, including the point-in-time test
+        run: uv run --no-sync elec dbt build
+
+      - name: Forecast tomorrow once, settle past days
+        run: >-
+          uv run --no-sync elec track-record daily --record record
+          --repo-url "${{ github.server_url }}/${{ github.repository }}"
+
+      - name: Save API responses for the next run
+        if: always()
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: data/raw
+          key: raw-${{ github.run_id }}
+
+      - name: Commit to the track-record branch, additions only
+        working-directory: record
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "Nothing new to record."
+            exit 0
+          fi
+          changed=$(git diff --cached --name-status -- forecasts schedules | grep -v '^A' || true)
+          if [ -n "$changed" ]; then
+            echo "::error::Refusing to change or delete a published forecast:"
+            echo "$changed"
+            exit 1
+          fi
+          added=$(git diff --cached --name-only --diff-filter=A -- forecasts \
+                  | xargs -r -n1 basename | sed 's/\.csv$//' | paste -sd, -)
+          run_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          git commit -q -m "${added:+Forecast for $added; }update scores ($(date -u +%F))" \
+                        -m "Made by $run_url"
+          git push origin HEAD:track-record

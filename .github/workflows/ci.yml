@@ -2,7 +2,8 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    # track-record holds data, not code; the track-record workflow writes to it daily.
+    branches: ["**", "!track-record"]
   pull_request:
 
 concurrency:

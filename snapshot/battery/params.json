@@ -1,0 +1,18 @@
+{
+  "power_mw": 1.0,
+  "energy_mwh": 2.0,
+  "round_trip_efficiency": 0.9,
+  "soc_min_frac": 0.0,
+  "soc_max_frac": 1.0,
+  "initial_soc_frac": 0.0,
+  "max_cycles_per_day": 1.5,
+  "degradation_cost_gbp_per_mwh": 10.0,
+  "naive_charge_window": [
+    1.0,
+    5.0
+  ],
+  "naive_discharge_window": [
+    16.5,
+    19.5
+  ]
+}

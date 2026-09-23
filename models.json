@@ -1,0 +1,16 @@
+[
+  {
+    "release": "model-v1",
+    "month": "2026-09",
+    "trained_from": "2024-03-01",
+    "trained_through": "2026-09-21",
+    "exported_at": "2026-09-23T23:27:49Z",
+    "sha256": {
+      "booster_p10.txt": "c205bdd5935a1f4573a0011238195c06c5db535619f530bdecc466c9c2a97498",
+      "booster_p50.txt": "9b632eb85f6a220cdd4c56e43f487daa84f78ceaea2188ed4a0c49fe909d799e",
+      "booster_p90.txt": "fc80bf470b984d5c062643cb6a3daf8801cb1d5f10f3a509d1aa9f4979b164b2",
+      "meta.json": "224973b4a36ee4feb768ff13c83407b286d3c5045822dc2b375bff14d91de4df",
+      "model_type.json": "5b465788f822f762b7934530f041d200f286cc7343b599469f02ff6eac2d151e"
+    }
+  }
+]

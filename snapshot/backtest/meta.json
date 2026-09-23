@@ -1,0 +1,29 @@
+{
+  "generated_at": "2026-09-22 03:56 UTC",
+  "mlflow_run_id": null,
+  "n_folds": 19,
+  "first_test_month": "2025-03",
+  "last_test_month": "2026-09",
+  "selection_folds": 6,
+  "config": {
+    "quantiles": "0.1,0.5,0.9",
+    "target_mode": "delta_7d_mean",
+    "calibration.mode": "all",
+    "calibration.days": 56,
+    "lightgbm.n_estimators": 700,
+    "lightgbm.learning_rate": 0.03,
+    "lightgbm.num_leaves": 31,
+    "lightgbm.min_child_samples": 50,
+    "lightgbm.subsample": 0.8,
+    "lightgbm.subsample_freq": 1,
+    "lightgbm.colsample_bytree": 0.8,
+    "lightgbm.reg_lambda": 1.0,
+    "lightgbm.random_state": 42,
+    "lightgbm.n_jobs": 4,
+    "lightgbm.verbose": -1,
+    "baseline.residual_window_days": 180,
+    "backtest.first_test_month": "2025-03",
+    "backtest.gap_days": 2,
+    "backtest.selection_folds": 6
+  }
+}

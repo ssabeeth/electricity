@@ -16,6 +16,23 @@ results, and the whole stack runs from one `make up`.
 > Index Price (MID, APXMIDP)**, the free half-hourly reference price for
 > short-term GB trading. See [Known limitations](#known-limitations).
 
+## Live track record
+
+Every morning since 24 September 2026, a GitHub Actions job forecasts the next
+day. It commits the forecast and the battery schedules to the
+[`track-record` branch](https://github.com/ssabeeth/electricity/tree/track-record)
+**before the delivery day starts**, and scores them once Elexon publishes the
+prices. Nothing published there is ever edited, so unlike the backtest below it
+cannot have been tuned with hindsight. The model is refitted at the start of
+each month on every day up to two days before, the backtest's own protocol, so
+the live numbers test the backtest's claims directly. Each model is published
+as a hashed release and named in every forecast it makes. The branch's README
+carries the running totals: coverage, pinball skill against the baseline, and
+cumulative battery £ against perfect foresight.
+
+It runs for free: GitHub Actions for the pipeline and Streamlit Community Cloud
+for the dashboard. See [docs/deploy_streamlit.md](docs/deploy_streamlit.md).
+
 ## Results
 
 Out-of-sample: 19 monthly walk-forward folds (Mar 2025 to Sep 2026), 27,344
@@ -131,6 +148,12 @@ schedule → settle past days.
 model has seen, promote only if its pinball loss is strictly lower, register a
 new challenger, then refresh the backtest and simulation.
 
+**Free hosting:** the same daily steps run in GitHub Actions, with a monthly
+refit in place of the weekly champion/challenger, and write to the append-only
+`track-record` branch; a Streamlit Community Cloud app reads that branch.
+Airflow, MLflow and the weekly retrain stay in the full stack. See
+[Live track record](#live-track-record).
+
 ## Quickstart
 
 ### Full stack (Docker)
@@ -191,10 +214,12 @@ src/elecprice/
 dbt/             sources, staging, intermediate (as-of), marts, tests, snapshots, macros
 airflow/dags/    bootstrap, ingest, daily forecast, weekly retrain
 docker/          app and Airflow images;   docker-compose.yml at the root
-deploy/          production Compose override + Caddyfile for a VPS
+deploy/          production Compose override + Caddyfile for a VPS;
+                 streamlit/ is the Streamlit Community Cloud entry point
 configs/         model.yaml, battery.yaml
 reports/         backtest, battery and leakage-experiment reports with figures
-docs/            deploy_vps.md, bigquery.md
+docs/            deploy_vps.md, deploy_streamlit.md, bigquery.md
+.github/         CI, and the daily track-record workflow
 tests/           80+ pytest tests, fixture lake, DAG integrity tests
 ```
 
@@ -313,10 +338,14 @@ GitHub Actions runs five jobs on every push. `main` is only ever merged green.
   and [docs/deploy_vps.md](docs/deploy_vps.md).
 - **The P50 drives the battery**, not the full distribution. A risk-aware
   schedule using P10/P90 is a natural next step.
+- **The hosted track record refits monthly**, as the backtest did, rather than
+  running the weekly champion/challenger, which needs the MLflow registry and
+  runs only in the full stack. A GitHub cron run can be late, and a missed day
+  stays a gap.
 
 ## Further reading
 
 - [PROGRESS.md](PROGRESS.md): what was built, phase by phase, and what the owner still needs to do
 - [DECISIONS.md](DECISIONS.md): every decision with options considered and reasons
 - [reports/backtest.md](reports/backtest.md) · [reports/battery.md](reports/battery.md) · [reports/leakage_experiment.md](reports/leakage_experiment.md)
-- [docs/deploy_vps.md](docs/deploy_vps.md) · [docs/bigquery.md](docs/bigquery.md)
+- [docs/deploy_streamlit.md](docs/deploy_streamlit.md) · [docs/deploy_vps.md](docs/deploy_vps.md) · [docs/bigquery.md](docs/bigquery.md)

@@ -432,3 +432,76 @@ small, because NESO's forecasts carry the weather signal. The dangerous leak is
 realised system outturn, which sits in the same Elexon API as the forecasts. The
 observed-weather archive was downloaded for this experiment only, cached under
 `data/raw/experiments/`, and is not an input to any pipeline model.
+
+## 2026-09-24 — Free hosting and a public live track record
+
+**Options for hosting:** (a) the full stack on a paid VPS (about £8-12 a month);
+(b) the full stack on Oracle Cloud Always Free (2 ARM cores, 12 GB since the June
+2026 cut; card required; idle reclamation and capacity limits); (c) a free
+split: GitHub Actions runs the daily pipeline and Streamlit Community Cloud
+serves the dashboard, while Airflow and MLflow stay local.
+
+**Decision:** (c), with (a) and (b) still documented in `docs/deploy_vps.md`.
+What a reviewer can check from a public link is the forecast, not the
+orchestrator, so the free option keeps the part that matters. Airflow and the
+weekly champion/challenger retrain remain the production design and run under
+`make up`.
+
+**A public track record, and why it is built this way.** A walk-forward backtest,
+however careful, can always be accused of being tuned in hindsight. A forecast
+published before its delivery day cannot. The daily job therefore:
+
+- **refits monthly, exactly as the backtest did**: the first forecast of each
+  calendar month is made by a model fitted on every delivery day up to two days
+  before it (at the 09:00 cutoff on D-1, D-2 is the newest fully priced day),
+  with the configuration in `configs/model.yaml` and the backtest's leakage
+  check. The record's question is whether the backtest holds up live, so it
+  follows the backtest's protocol: monthly folds, expanding window, no
+  hyperparameter changes. A model frozen at the start would age month by month
+  and make the live numbers incomparable with the backtest's; retraining does
+  not weaken the record, because a model trained only on days before a cutoff
+  has never seen the day it forecasts. The weekly champion/challenger retrain is
+  a separate production mechanism and stays in the Airflow stack. The first
+  model, `model-v1`, is the local champion (trained through 2026-09-21) and
+  serves September. Every model is exported with a SHA-256 per file
+  (`elec export-model`, `export_model`), published as a release
+  (`model-v1`, `model-2026-10`, ...) before the record cites it, checked by hash
+  before use, and named in every forecast file; `models.json` on the branch
+  lists them all with their training windows.
+- **writes to an append-only branch**: one CSV per delivery day under
+  `forecasts/` and `schedules/`, written once. `record_day` refuses a forecast
+  made at or after the start of its delivery day, and the workflow's commit step
+  fails if anything published would be modified or deleted. Commits come only
+  from `github-actions[bot]` and link to the run, because local commit dates can
+  be set to anything and a GitHub-run timestamp cannot. CSV, not Parquet, so the
+  record can be read on GitHub.
+- **schedules the battery from both forecasts** (LightGBM and seasonal naive)
+  before the day, so the live record measures the value of the better forecast
+  the same way the backtest does, against perfect foresight.
+- **scores are derived data**: recomputed each run from the record and the
+  published prices, pooled over half-hours rather than averaged over days.
+
+**Verified, not assumed.** A daily run rebuilds data from scratch on a fresh
+runner, so it only ingests the last 200 days. Checked on 2026-09-23: from an
+empty data directory, ingesting 200 days took about 80 seconds and `dbt build`
+4 seconds. Built from that 200-day window, `mart_features` and the resulting
+forecasts for 19-21 September matched the full three-year warehouse exactly
+(no differing feature columns; maximum P50 difference 0.0). A frozen export
+reproduces the registry model's forecasts exactly (tested). A refit needs the
+full history, so on refit days the workflow ingests from `ELEC_HISTORY_START`,
+and the refit refuses to train if the warehouse does not reach back to the
+feature start date. Refitting for 1 September 2026 on the full local history (43,822
+half-hours, 2024-03-01 to 2026-08-30, 10 seconds) reproduced the walk-forward
+backtest's September predictions exactly: maximum difference 0.0 at P10, P50
+and P90 over all 1,008 half-hours from 1 to 21 September. The live record runs
+the backtest's method, not an approximation of it.
+
+**Timing.** The workflow runs at 09:20 UTC: 10:20 UK in summer and 09:20 in
+winter, after the 09:00 cutoff either way. A run before the cutoff settles past
+days and skips the forecast.
+
+**The dashboard on Community Cloud** runs `deploy/streamlit/streamlit_app.py`,
+which downloads the `track-record` branch at most hourly and serves the existing
+dashboard with the API in-process. It never needs redeploying for new data. Its
+`requirements.txt` sits beside the entry point so Community Cloud uses it instead
+of `uv.lock`; the dashboard does not need MLflow, dbt or LightGBM.

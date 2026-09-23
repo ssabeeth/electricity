@@ -86,3 +86,28 @@ def load_registered(alias: str = CHAMPION) -> tuple[QuantileLGBM, str]:
     mv = client.get_model_version_by_alias(REGISTERED_MODEL, alias)
     pyfunc = mlflow.pyfunc.load_model(f"models:/{REGISTERED_MODEL}@{alias}")
     return pyfunc.unwrap_python_model().model, mv.version
+
+
+def export_registered(out_dir: Path, alias: str = CHAMPION, release: str | None = None) -> dict:
+    """Freeze the model behind ``alias`` into ``out_dir``, loadable without MLflow.
+
+    ``release`` names the export (default ``model-v<registry version>``). The month
+    it was exported in is the first month it serves in the public track record.
+    """
+    from datetime import UTC, datetime
+
+    from elecprice.modelling.models import export_model
+
+    client = MlflowClient()
+    mv = client.get_model_version_by_alias(REGISTERED_MODEL, alias)
+    model, version = load_registered(alias)
+    return export_model(
+        model,
+        out_dir,
+        release=release or f"model-v{version}",
+        month=datetime.now(UTC).strftime("%Y-%m"),
+        registered_model=REGISTERED_MODEL,
+        registry_version=str(version),
+        run_id=mv.run_id,
+        trained_through=mv.tags.get("trained_through"),
+    )

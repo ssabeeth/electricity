@@ -533,3 +533,55 @@ second (`MERGE`) was refused. With billing enabled they run unchanged.
 **Verification.** `scripts/compare_warehouses.py` compares every value of the
 feature mart and the price actuals across the two warehouses: 2,246,300
 values, no differences.
+
+## 2026-09-26 — Pre-registered: the experiment programme and the rule for adopting a change
+
+**Why now.** The model's features and settings were sensible defaults, chosen on
+reasoning and checked only for the target transform and calibration. A reviewer
+can fairly ask why these features, this model family and these settings. The
+answer should be evidence, gathered without spending the hold-out.
+
+**Selection and hold-out.** The original choices used folds 1-6 (2025-03 to
+2025-08): spring and summer only. From now on the selection folds are 1-12
+(2025-03 to 2026-02), one full year, so every experiment sees every season.
+Folds 13-19 (2026-03 to 2026-09) are the hold-out. They appeared in the
+original backtest report, but no choice has been made on them, and none of the
+work below reads them: `reports/data_patterns.md` and every experiment cut the
+frame at 2026-03-01 before computing anything. The hold-out is read once, for
+the final configuration against the current one, and reported whatever it
+shows.
+
+**The programme.** One experiment per pattern in `reports/data_patterns.md`,
+each a single change to the current model:
+
+| Experiment | Pattern | Change |
+|---|---|---|
+| `merit_order` | 2. the merit order moves | slope of price on residual demand over the last 14 settled days, and the price it implies for each half-hour |
+| `recency_weight` | 2 | training rows weighted by recency, half-life 180 days |
+| `rolling_365d` | 2 | last 365 days instead of the expanding window |
+| `monotone_residual_demand` | 3. residual demand is the strongest signal | trees non-decreasing in residual demand |
+| `same_period_profile` | 4. the daily shape repeats | the same half-hour's mean over the last 7 settled days |
+| `renewable_share` | 6. renewables set the bottom | forecast wind and solar share of demand |
+| `calibration_28d` | 7. volatility persists for days | conformal shifts from 28 days instead of 56 |
+| `calibration_by_hour` | 8. misses depend on time of day | conformal shifts per time-of-day group |
+| `drop_regime_markers` | 9. inputs drift between years | drop the slow system-state inputs that mark the year |
+
+Separately, `elec compare-models` puts the current model against other model
+families on the same folds (pattern 1: a point model with empirical intervals,
+linear quantile regression, XGBoost, CatBoost) and against a second, stronger
+naive forecast (pattern 5: the same half-hour two days earlier).
+
+**The rule.** A change is adopted only if all three hold on the selection folds:
+
+1. the 95% moving-block bootstrap interval (7-day blocks, 2,000 resamples) of
+   the mean daily reduction in pinball loss lies entirely above zero;
+2. pinball loss is lower in at least 9 of the 12 folds;
+3. pooled P10-P90 coverage stays between 77% and 83%.
+
+Pinball loss is the decision metric because it is the proper scoring rule for
+the quantiles the model reports; MAE and coverage are reported alongside. The
+blocks are a week long because errors are correlated from one day to the next.
+Several changes may pass. They are then run together, and the combination is
+adopted only if it passes the same rule against the current model; otherwise
+the single best change is adopted. A change that fails is reported as a result,
+not retried with different settings.

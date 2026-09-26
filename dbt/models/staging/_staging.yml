@@ -119,6 +119,7 @@ models:
           - accepted_values:
               arguments:
                 values: [1, 2]
+                quote: false  # integers; BigQuery will not compare INT64 with a quoted string
       - name: wind_speed_100m_ms
         data_tests:
           - accepted_range: {arguments: {min_value: 0, max_value: 80}}

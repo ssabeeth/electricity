@@ -250,7 +250,7 @@ short version:
 |---|---|
 | **uv** | One lockfile, fast reproducible installs, Python version managed per project. The same lock drives local work, CI and both Docker images. |
 | **Parquet lake + raw cache** | Every API response is cached gzipped and never re-fetched once settled. Epoch-aligned chunks make re-runs idempotent. The warehouse can be rebuilt offline. |
-| **dbt on DuckDB, BigQuery-ready** | DuckDB is zero-ops and builds the full project in about 3 seconds, locally and in CI. Non-portable SQL sits behind adapter-dispatched macros; the BigQuery target compiles offline and all 94 compiled files parse as BigQuery SQL (tested in CI). |
+| **dbt on DuckDB and BigQuery** | DuckDB is zero-ops and builds the full project in about 3 seconds, locally and in CI. Non-portable SQL sits behind adapter-dispatched macros. The same project has been built on BigQuery (the point-in-time test passes there too), and its feature mart matches DuckDB's on all 2.2 M values; CI also compiles it for BigQuery offline and parses every compiled file. |
 | **Point-in-time as a dbt test** | Leakage is a data-contract problem, so it is enforced where the data is built, and every build pays for it. |
 | **LightGBM quantile regression** | Handles missing values and non-linear interactions (residual demand × hour × recent prices). Three quantile models train in seconds, so 19 refits per backtest are cheap. |
 | **De-levelled target** | The model predicts price minus its trailing 7-day mean. Trees can't extrapolate, and 2026 prices rose above anything in training. Chosen on selection folds and confirmed on hold-out. |
@@ -337,10 +337,10 @@ GitHub Actions runs five jobs on every push. `main` is only ever merged green.
   conservatively. Some intermediate vintages are therefore slightly staler than
   strictly necessary.
 - **Monthly refits in the backtest** approximate the weekly production retrain.
-- **BigQuery and the VPS deployment are prepared but not run.** Both need owner
-  credentials or cost money. The BigQuery SQL is verified by an offline compile
-  and parse; runtime types and costs are not. See [docs/bigquery.md](docs/bigquery.md)
-  and [docs/deploy_vps.md](docs/deploy_vps.md).
+- **The VPS deployment is prepared but not run**, because it costs money
+  ([docs/deploy_vps.md](docs/deploy_vps.md)). BigQuery has run, but on the free
+  sandbox, which forbids the `MERGE` a snapshot update needs, so the snapshots
+  are skipped there ([docs/bigquery.md](docs/bigquery.md)).
 - **The P50 drives the battery**, not the full distribution. A risk-aware
   schedule using P10/P90 is a natural next step.
 - **The hosted track record refits monthly**, as the backtest did, rather than

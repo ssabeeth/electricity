@@ -1,5 +1,7 @@
-# Two targets. `duckdb` is the default for local runs and CI; `bigquery` is
-# configured but only usable once a service account exists (docs/bigquery.md).
+# Two targets. `duckdb` is the default for local runs and CI; `bigquery` runs
+# against a GCP project (docs/bigquery.md). BigQuery auth is the owner's own
+# gcloud application-default login (`oauth`, the default) or a service-account
+# key file (BQ_AUTH_METHOD=service-account); neither lives in the repository.
 elecprice:
   target: "{{ env_var('DBT_TARGET', 'duckdb') }}"
   outputs:
@@ -12,7 +14,7 @@ elecprice:
 
     bigquery:
       type: bigquery
-      method: service-account
+      method: "{{ env_var('BQ_AUTH_METHOD', 'oauth') }}"
       keyfile: "{{ env_var('GOOGLE_APPLICATION_CREDENTIALS', '') }}"
       project: "{{ env_var('GCP_PROJECT', 'set-GCP_PROJECT') }}"
       dataset: "{{ env_var('BQ_DATASET', 'elecprice') }}"

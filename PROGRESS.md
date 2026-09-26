@@ -12,10 +12,11 @@ credentials, and none has been done:
 1. **Deploy to a VPS.** Provision a 4-8 GB Ubuntu 24.04 machine, point DNS at
    it, and follow `docs/deploy_vps.md`. The configuration is validated in CI;
    start it with `make prod-up`.
-2. **BigQuery (optional).** Create a GCP project and a service account with
-   BigQuery Data Editor and Job User roles, then follow `docs/bigquery.md`. The
-   dbt project already compiles to valid BigQuery SQL offline; that is tested
-   in CI.
+2. ~~**BigQuery (optional).**~~ Done 2026-09-25 on the free sandbox of the
+   owner's project `elecprice-portfolio`, with the owner's own gcloud login:
+   `dbt build` passes and the feature mart matches DuckDB on every value
+   (`docs/bigquery.md`, "Result of the first real run"). Sandbox tables expire
+   after 60 days; rerun `elec load-bigquery` and `elec dbt build` to refresh.
 3. **Rotate the local `.env`.** It was generated with random secrets during
    testing and is git-ignored. Delete it before sharing the machine;
    `make env` regenerates it.
@@ -381,3 +382,18 @@ Done:
   minimal requirements with no exceptions.
 
 The owner deployed the dashboard at https://ukelectricity.streamlit.app.
+
+### Phase 12 — BigQuery, run for real (2026-09-25)
+
+Done:
+- `elec load-bigquery` loaded the eight raw tables (4.5 M rows) into the
+  owner's sandbox project; `elec dbt build` on the `bigquery` target passes
+  (95 pass, 1 warning that DuckDB shares on the common days).
+- Fixed the one portability bug the real run found (`accepted_values` on
+  integers needs `quote: false` on BigQuery).
+- Auth defaults to the owner's gcloud login (`method: oauth`); a service-account
+  key stays an option (`BQ_AUTH_METHOD=service-account`).
+- `BQ_SANDBOX=true` skips the snapshots, whose updates are a `MERGE` the
+  sandbox forbids.
+- `scripts/compare_warehouses.py`: the BigQuery feature mart equals DuckDB's on
+  all 2,246,300 values.

@@ -1,0 +1,4 @@
+settlement_date,strategy,revenue_gbp,degradation_gbp,net_gbp,discharged_mwh,charged_mwh,cycles
+2026-09-25,forecast_lgbm,86.3857,28.4605,57.9252,2.8460,3.1623,1.5000
+2026-09-25,forecast_naive,101.4709,28.4605,73.0104,2.8460,3.1623,1.5000
+2026-09-25,perfect_foresight,124.2939,28.4605,95.8334,2.8460,3.1623,1.5000

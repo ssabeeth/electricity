@@ -45,13 +45,17 @@ class SeasonalNaive:
         self.residual_window_days = residual_window_days
         self.offsets_: pd.DataFrame | None = None
 
+    @staticmethod
+    def _point(df: pd.DataFrame) -> pd.Series:
+        return seasonal_naive_point(df)
+
     def fit(self, df: pd.DataFrame) -> SeasonalNaive:
         train = df[df[TARGET].notna()]
         last = train["settlement_date"].max()
         recent = train[
             train["settlement_date"] > last - pd.Timedelta(days=self.residual_window_days)
         ]
-        resid = recent[TARGET] - seasonal_naive_point(recent)
+        resid = recent[TARGET] - self._point(recent)
         hour = recent["local_hour"].astype(int)
         frame = pd.DataFrame({"hour": hour, "resid": resid}).dropna()
         self.offsets_ = pd.DataFrame(
@@ -64,7 +68,7 @@ class SeasonalNaive:
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:
         if self.offsets_ is None:
             raise RuntimeError("fit() first")
-        point = seasonal_naive_point(df).to_numpy()
+        point = self._point(df).to_numpy()
         off = self.offsets_.reindex(df["local_hour"].astype(int)).fillna(0.0)
         cols = [qcol(q) for q in self.quantiles]
         pred = point[:, None] + off[cols].to_numpy()

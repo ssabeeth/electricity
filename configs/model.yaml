@@ -45,5 +45,7 @@ backtest:
   # day is two days before it.
   gap_days: 2
   # Folds up to and including this index are used for model selection; later
-  # folds are reported separately as fully out-of-sample.
-  selection_folds: 6
+  # folds are reported separately as fully out-of-sample. Folds 1-12 are one
+  # full year (2025-03 to 2026-02), so every experiment sees every season; the
+  # target and calibration were first chosen on folds 1-6 (see DECISIONS.md).
+  selection_folds: 12

@@ -41,19 +41,21 @@ for the [dashboard](https://ukelectricity.streamlit.app). See
 ## Results
 
 Out-of-sample: 19 monthly walk-forward folds (Mar 2025 to Sep 2026), 27,344
-half-hours, expanding training window from Mar 2024. The two modelling choices
-(target transform and calibration variant) were made on folds 1-6 only. Folds
-7-19 are reported separately as out-of-sample for those choices. The LightGBM
-hyperparameters are hand-set and were not tuned.
+half-hours, expanding training window from Mar 2024. Every modelling choice was
+made on folds 1-12 (Mar 2025 to Feb 2026); folds 13-19 (Mar to Sep 2026) are
+the hold-out, on which no choice was made. The LightGBM hyperparameters are
+hand-set and were not tuned (see [how the model was chosen](#how-the-model-was-chosen)).
 
 | Model | Pinball loss | Skill vs baseline | MAE (P50) | P10-P90 coverage (nominal 80%) | Interval width |
 |---|---|---|---|---|---|
 | Seasonal naive baseline (same half-hour last week) | 9.79 | — | £27.47 | 78.4% | £87.7 |
 | **LightGBM quantile, conformally calibrated** | **5.05** | **48.4%** | **£15.48** | **78.7%** | **£46.1** |
-| … hold-out folds only | 5.34 | 48.7% | £16.39 | 77.5% | £47.4 |
+| … hold-out folds 13-19 only | 6.34 | 47.7% | £19.34 | 75.9% | £54.1 |
 
-Both models are well calibrated. LightGBM halves the pinball loss and the MAE
-with an interval half as wide. In £, on a 1 MW / 2 MWh battery over 568 settled
+Both models are well calibrated overall. LightGBM halves the pinball loss and
+the MAE with an interval half as wide. The hold-out months are harder for both
+(prices rose to a new level in 2026 Q3, see the caveats in the backtest report),
+and coverage there falls to 76%; the skill over the baseline holds at 48%. In £, on a 1 MW / 2 MWh battery over 568 settled
 out-of-sample days:
 
 | Battery strategy (schedule fixed at 09:00 D-1, settled at actual prices) | Net £ | £ per MW-year | Share of perfect foresight |
@@ -70,6 +72,51 @@ with the same optimiser. Full reports: [backtest](reports/backtest.md),
 ![Forecast fan charts](reports/figures/fan_chart.png)
 
 ![Cumulative battery revenue](reports/figures/battery_cumulative.png)
+
+## How the model was chosen
+
+The model's design is backed by three reports, all computed on the selection
+folds only (the hold-out months are never read):
+
+- **[Data patterns](reports/data_patterns.md)** (`elec patterns`). Heavy tails
+  (kurtosis 174, 2.7% of half-hours below £0), a level and merit order that move
+  with gas (the price at 20 GW of residual demand ranged from £65 to £99 by
+  quarter), residual demand as the strongest single signal, a repeating daily
+  shape, and slow system state that drifts between years. Each pattern ends
+  with what it implies for the model.
+- **[Model comparison](reports/model_comparison.md)** (`elec compare-models`).
+  Same features, target and calibration for every learner:
+
+  | Model | Pinball | Current model's pinball is lower by | Current model better in |
+  |---|---|---|---|
+  | **LightGBM quantile (current)** | **4.33** | | |
+  | XGBoost quantile | 4.37 | 0.9% (interval spans zero) | 7 of 12 folds |
+  | CatBoost multi-quantile | 4.40 | 1.5% (interval spans zero) | 8 of 12 |
+  | LightGBM point forecast + empirical intervals | 4.87 | 11.0% | 12 of 12 |
+  | Linear quantile regression | 5.36 | 19.3% | 11 of 12 |
+  | Naive, same half-hour two days earlier | 8.13 | 46.8% | 12 of 12 |
+  | Seasonal naive, last week (the brief's baseline) | 8.48 | 49.0% | 12 of 12 |
+
+  Trees beat a linear model decisively, and direct quantile models beat a point
+  model with residual intervals. Among the three boosting libraries the
+  differences are inside the noise. LightGBM stays because the pipeline,
+  registry and track record already run it and a switch would buy nothing
+  measurable, not because it has shown better accuracy.
+- **[Experiments](reports/experiments.md)** (`elec experiments`). Nine changes,
+  one per pattern, under a rule fixed in DECISIONS.md before the first run
+  (95% block-bootstrap interval of the daily gain above zero, better in 9 of 12
+  folds, coverage 77-83%). **None passed.** A recent merit-order curve, a
+  same-half-hour profile, the renewable share, a 28-day or per-hour
+  calibration and dropping the drifting system-state inputs all landed within
+  1.3% of the current model, with intervals spanning zero. Recency weighting
+  and a one-year rolling window made it worse (recency weighting significantly
+  so), most likely because the older data holds rare spikes and negative
+  prices that the tails need. Monotone
+  constraints could not run, because LightGBM refuses them with a quantile
+  objective; that is reported rather than swapped for another change.
+
+So the current model stays as it was, now with evidence that the obvious
+alternatives were tried and did not beat it.
 
 ## Why the numbers can be trusted
 
@@ -252,8 +299,8 @@ short version:
 | **Parquet lake + raw cache** | Every API response is cached gzipped and never re-fetched once settled. Epoch-aligned chunks make re-runs idempotent. The warehouse can be rebuilt offline. |
 | **dbt on DuckDB and BigQuery** | DuckDB is zero-ops and builds the full project in about 3 seconds, locally and in CI. Non-portable SQL sits behind adapter-dispatched macros. The same project has been built on BigQuery (the point-in-time test passes there too), and its feature mart matches DuckDB's on all 2.2 M values; CI also compiles it for BigQuery offline and parses every compiled file. |
 | **Point-in-time as a dbt test** | Leakage is a data-contract problem, so it is enforced where the data is built, and every build pays for it. |
-| **LightGBM quantile regression** | Handles missing values and non-linear interactions (residual demand × hour × recent prices). Three quantile models train in seconds, so 19 refits per backtest are cheap. |
-| **De-levelled target** | The model predicts price minus its trailing 7-day mean. Trees can't extrapolate, and 2026 prices rose above anything in training. Chosen on selection folds and confirmed on hold-out. |
+| **LightGBM quantile regression** | Handles missing values and non-linear interactions (residual demand × hour × recent prices), and three quantile models train in seconds. On the selection folds it beats linear quantile regression by 19% and a point model with residual intervals by 11%; XGBoost and CatBoost are within 1.5%, inside the noise ([model comparison](reports/model_comparison.md)). |
+| **De-levelled target** | The model predicts price minus its trailing 7-day mean. Trees can't extrapolate, and 2026 prices rose above anything in training. Chosen on folds 1-6 and confirmed on folds 7-19 before any of those were used for a choice. |
 | **Conformal calibration** | Raw quantile GBMs covered only 55% of outcomes with a nominal 80% interval. A shift learned on the last 56 days of each training window restores coverage (78.7%) and improves pinball. |
 | **MLflow tracking + registry** | Parameters, per-fold metrics, figures and models in one place. The champion/challenger process uses registry aliases (stages are deprecated). |
 | **Champion/challenger with a one-week lag** | Scoring a fresh refit against the champion on data the champion trained on is biased. Refitting the same recipe on the same window can't show the value of new data. Judging last week's challenger on days neither model saw does both. |
@@ -353,4 +400,5 @@ GitHub Actions runs five jobs on every push. `main` is only ever merged green.
 - [PROGRESS.md](PROGRESS.md): what was built, phase by phase, and what the owner still needs to do
 - [DECISIONS.md](DECISIONS.md): every decision with options considered and reasons
 - [reports/backtest.md](reports/backtest.md) · [reports/battery.md](reports/battery.md) · [reports/leakage_experiment.md](reports/leakage_experiment.md)
+- [reports/data_patterns.md](reports/data_patterns.md) · [reports/model_comparison.md](reports/model_comparison.md) · [reports/experiments.md](reports/experiments.md)
 - [docs/deploy_streamlit.md](docs/deploy_streamlit.md) · [docs/deploy_vps.md](docs/deploy_vps.md) · [docs/bigquery.md](docs/bigquery.md)

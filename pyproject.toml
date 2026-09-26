@@ -42,6 +42,11 @@ serve = [
     "streamlit>=1.39",
     "uvicorn[standard]>=0.32",
 ]
+# Other model families, only for the model comparison (elec compare-models).
+compare = [
+    "catboost>=1.2",
+    "xgboost>=2.1",
+]
 
 [project.scripts]
 elec = "elecprice.cli:main"

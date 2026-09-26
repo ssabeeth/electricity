@@ -533,3 +533,106 @@ second (`MERGE`) was refused. With billing enabled they run unchanged.
 **Verification.** `scripts/compare_warehouses.py` compares every value of the
 feature mart and the price actuals across the two warehouses: 2,246,300
 values, no differences.
+
+## 2026-09-26 — Pre-registered: the experiment programme and the rule for adopting a change
+
+**Why now.** The model's features and settings were sensible defaults, chosen on
+reasoning and checked only for the target transform and calibration. A reviewer
+can fairly ask why these features, this model family and these settings. The
+answer should be evidence, gathered without spending the hold-out.
+
+**Selection and hold-out.** The original choices used folds 1-6 (2025-03 to
+2025-08): spring and summer only. From now on the selection folds are 1-12
+(2025-03 to 2026-02), one full year, so every experiment sees every season.
+Folds 13-19 (2026-03 to 2026-09) are the hold-out. They appeared in the
+original backtest report, but no choice has been made on them, and none of the
+work below reads them: `reports/data_patterns.md` and every experiment cut the
+frame at 2026-03-01 before computing anything. The hold-out is read once, for
+the final configuration against the current one, and reported whatever it
+shows.
+
+**The programme.** One experiment per pattern in `reports/data_patterns.md`,
+each a single change to the current model:
+
+| Experiment | Pattern | Change |
+|---|---|---|
+| `merit_order` | 2. the merit order moves | slope of price on residual demand over the last 14 settled days, and the price it implies for each half-hour |
+| `recency_weight` | 2 | training rows weighted by recency, half-life 180 days |
+| `rolling_365d` | 2 | last 365 days instead of the expanding window |
+| `monotone_residual_demand` | 3. residual demand is the strongest signal | trees non-decreasing in residual demand |
+| `same_period_profile` | 4. the daily shape repeats | the same half-hour's mean over the last 7 settled days |
+| `renewable_share` | 6. renewables set the bottom | forecast wind and solar share of demand |
+| `calibration_28d` | 7. volatility persists for days | conformal shifts from 28 days instead of 56 |
+| `calibration_by_hour` | 8. misses depend on time of day | conformal shifts per time-of-day group |
+| `drop_regime_markers` | 9. inputs drift between years | drop the slow system-state inputs that mark the year |
+
+Separately, `elec compare-models` puts the current model against other model
+families on the same folds (pattern 1: a point model with empirical intervals,
+linear quantile regression, XGBoost, CatBoost) and against a second, stronger
+naive forecast (pattern 5: the same half-hour two days earlier).
+
+**The rule.** A change is adopted only if all three hold on the selection folds:
+
+1. the 95% moving-block bootstrap interval (7-day blocks, 2,000 resamples) of
+   the mean daily reduction in pinball loss lies entirely above zero;
+2. pinball loss is lower in at least 9 of the 12 folds;
+3. pooled P10-P90 coverage stays between 77% and 83%.
+
+Pinball loss is the decision metric because it is the proper scoring rule for
+the quantiles the model reports; MAE and coverage are reported alongside. The
+blocks are a week long because errors are correlated from one day to the next.
+Several changes may pass. They are then run together, and the combination is
+adopted only if it passes the same rule against the current model; otherwise
+the single best change is adopted. A change that fails is reported as a result,
+not retried with different settings.
+
+## 2026-09-26 — Result: nothing adopted, and why LightGBM
+
+**Model comparison** (`reports/model_comparison.md`, selection folds only).
+Every learner got the same features, de-levelled target and conformal
+calibration. Pinball loss: LightGBM quantile 4.330, XGBoost 4.369, CatBoost
+4.397, LightGBM point forecast with empirical intervals 4.867, linear quantile
+regression 5.362, D-2 naive 8.134, D-7 naive (the baseline) 8.484. The
+experiment baseline reproduced the saved backtest on the same folds exactly
+(4.3299, coverage 80.28%), which checks the harness.
+
+What this supports, and what it does not:
+
+- **Trees over a linear model**: 19% better, 11 of 12 folds, interval well
+  above zero. The price responds non-linearly to residual demand and the
+  response changes with the hour and the level.
+- **Direct quantile models over a point model with residual intervals**: 11%
+  better in all 12 folds. The error distribution is skewed and depends on the
+  conditions, which fixed residual quantiles cannot follow (pattern 1).
+- **LightGBM over XGBoost and CatBoost: not shown.** Its lead (0.9% and 1.5%)
+  has intervals that include zero, and it wins 7 and 8 folds of 12. LightGBM
+  is kept because the pipeline, registry, exports and track record already run
+  it, not because it is more accurate. CatBoost trained fastest here (133 s for
+  12 folds against 298 s) at its own usual settings.
+- **The D-2 naive beats the brief's D-7 baseline by 4%**; the model's skill
+  over it is still 47%, so the headline skill is not an artefact of a weak
+  baseline.
+
+**Experiments** (`reports/experiments.md`). None of the eight that ran passed
+the rule. Changes in pooled pinball against the current model: merit order
+-0.9%, recency weighting -1.2% (interval entirely below zero: significantly
+worse), rolling 365-day window -2.4%, same-period profile -0.2%, renewable
+share +0.6%, 28-day calibration -1.3%, per-hour calibration -0.3%, dropping the
+regime markers -0.4%. The ninth, monotone constraints on residual demand, could
+not run: LightGBM refuses `monotone_constraints` with the quantile objective.
+It is recorded as not run; substituting a different change after seeing the
+others' results would have broken the pre-registration.
+
+**Reading the result.** The patterns were real, but the model already had what
+they pointed at: residual demand, the D-2 and D-7 lags and the trailing 7-day
+statistics let the trees learn the merit order, the daily shape and the
+renewable effect themselves. Down-weighting or dropping old data hurt, most
+likely because the rare spikes and negative prices that shape the P10 and P90
+are spread across the whole history. The hold-out was not read for the
+programme, because there is no new configuration to test on it; the current
+model's hold-out figures (folds 13-19) are in `reports/backtest.md`.
+
+**Backtest report re-split.** With the selection set now folds 1-12,
+`reports/backtest.md` was re-scoped from the saved predictions (no refit, so
+no number for any fold changed): hold-out folds 13-19 give pinball 6.34 against
+the baseline's 12.11 (47.7% skill), coverage 75.9%.

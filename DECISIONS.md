@@ -585,3 +585,54 @@ Several changes may pass. They are then run together, and the combination is
 adopted only if it passes the same rule against the current model; otherwise
 the single best change is adopted. A change that fails is reported as a result,
 not retried with different settings.
+
+## 2026-09-26 — Result: nothing adopted, and why LightGBM
+
+**Model comparison** (`reports/model_comparison.md`, selection folds only).
+Every learner got the same features, de-levelled target and conformal
+calibration. Pinball loss: LightGBM quantile 4.330, XGBoost 4.369, CatBoost
+4.397, LightGBM point forecast with empirical intervals 4.867, linear quantile
+regression 5.362, D-2 naive 8.134, D-7 naive (the baseline) 8.484. The
+experiment baseline reproduced the saved backtest on the same folds exactly
+(4.3299, coverage 80.28%), which checks the harness.
+
+What this supports, and what it does not:
+
+- **Trees over a linear model**: 19% better, 11 of 12 folds, interval well
+  above zero. The price responds non-linearly to residual demand and the
+  response changes with the hour and the level.
+- **Direct quantile models over a point model with residual intervals**: 11%
+  better in all 12 folds. The error distribution is skewed and depends on the
+  conditions, which fixed residual quantiles cannot follow (pattern 1).
+- **LightGBM over XGBoost and CatBoost: not shown.** Its lead (0.9% and 1.5%)
+  has intervals that include zero, and it wins 7 and 8 folds of 12. LightGBM
+  is kept because the pipeline, registry, exports and track record already run
+  it, not because it is more accurate. CatBoost trained fastest here (133 s for
+  12 folds against 298 s) at its own usual settings.
+- **The D-2 naive beats the brief's D-7 baseline by 4%**; the model's skill
+  over it is still 47%, so the headline skill is not an artefact of a weak
+  baseline.
+
+**Experiments** (`reports/experiments.md`). None of the eight that ran passed
+the rule. Changes in pooled pinball against the current model: merit order
+-0.9%, recency weighting -1.2% (interval entirely below zero: significantly
+worse), rolling 365-day window -2.4%, same-period profile -0.2%, renewable
+share +0.6%, 28-day calibration -1.3%, per-hour calibration -0.3%, dropping the
+regime markers -0.4%. The ninth, monotone constraints on residual demand, could
+not run: LightGBM refuses `monotone_constraints` with the quantile objective.
+It is recorded as not run; substituting a different change after seeing the
+others' results would have broken the pre-registration.
+
+**Reading the result.** The patterns were real, but the model already had what
+they pointed at: residual demand, the D-2 and D-7 lags and the trailing 7-day
+statistics let the trees learn the merit order, the daily shape and the
+renewable effect themselves. Down-weighting or dropping old data hurt, most
+likely because the rare spikes and negative prices that shape the P10 and P90
+are spread across the whole history. The hold-out was not read for the
+programme, because there is no new configuration to test on it; the current
+model's hold-out figures (folds 13-19) are in `reports/backtest.md`.
+
+**Backtest report re-split.** With the selection set now folds 1-12,
+`reports/backtest.md` was re-scoped from the saved predictions (no refit, so
+no number for any fold changed): hold-out folds 13-19 give pinball 6.34 against
+the baseline's 12.11 (47.7% skill), coverage 75.9%.

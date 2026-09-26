@@ -217,8 +217,12 @@ def cmd_patterns(args: argparse.Namespace) -> int:
 def cmd_experiments(args: argparse.Namespace) -> int:
     from elecprice.modelling import experiments
 
+    if args.holdout:
+        h = experiments.holdout()
+        print(f"hold-out read at {h['read_at']}: pinball {h['relative_gain']:+.1%}")
+        return 0
     res = experiments.run(workers=args.workers, only=args.only or None)
-    print("adopted:", ", ".join(res["adopted"]) or "nothing")
+    print("adopted:", ", ".join(experiments.final_members(res)) or "nothing")
     return 0
 
 
@@ -330,6 +334,9 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("experiments", help="Pre-registered experiments on the selection folds")
     p.add_argument("--only", nargs="*", help="run only these experiments (and the baseline)")
     p.add_argument("--workers", type=int, default=3, help="experiments run in parallel")
+    p.add_argument(
+        "--holdout", action="store_true", help="read the hold-out once for what was adopted"
+    )
     p.set_defaults(handler=cmd_experiments)
 
     p = sub.add_parser("compare-models", help="Model families on the selection folds")

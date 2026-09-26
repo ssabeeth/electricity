@@ -1,22 +1,10 @@
 # Progress
 
 **Status: all ten phases complete (tag `v1.0`), plus phase 11, the free hosted
-track record (tag `v1.1-track-record`). No blockers.**
+track record (tag `v1.1-track-record`); phase 12, the warehouse built on
+BigQuery (tag `v1.2-bigquery`); and phase 13, data patterns, a model comparison
+and pre-registered experiments (tag `v1.3-experiments`). No blockers.**
 The remote `origin` is `https://github.com/ssabeeth/electricity.git`.
-
-## In progress (2026-09-26): modelling programme, branch `phase-13-experiments`
-
-Done on the branch: `elec patterns` (`reports/data_patterns.md`, delivery days
-before 2026-03-01 only), the pre-registered rule and experiment list
-(DECISIONS.md, 2026-09-26), `elec experiments` and `elec compare-models` (code
-and tests). Still to do, in order:
-
-1. Run `elec experiments` and `elec compare-models` (selection folds only).
-2. If anything is adopted: build it properly (dbt, point-in-time tested, or the
-   derived features in `modelling/data.py`), change `configs/model.yaml`, then
-   read the hold-out once (`elec backtest`, `elec simulate`) and record it.
-3. DECISIONS (results and why LightGBM), README (modelling section), PROGRESS;
-   CI; merge into `main`; tag `v1.3-experiments`.
 
 **What only the owner can do.** Each of these costs money or needs the owner's
 credentials, and none has been done:
@@ -55,6 +43,8 @@ the local MLflow store and the outputs.
 | 9. Deployment prep | done | `v0.9-deployment-prep` |
 | 10. README | done | `v1.0` |
 | 11. Live track record and free hosting | done; dashboard live at ukelectricity.streamlit.app | `v1.1-track-record` |
+| 12. BigQuery, run for real | done; sandbox build passes, marts match DuckDB | `v1.2-bigquery` |
+| 13. Data patterns, model comparison, pre-registered experiments | done; nothing adopted | `v1.3-experiments` |
 
 ## Log
 
@@ -411,3 +401,28 @@ Done:
   sandbox forbids.
 - `scripts/compare_warehouses.py`: the BigQuery feature mart equals DuckDB's on
   all 2,246,300 values.
+
+### Phase 13 — Data patterns, model comparison, experiments (2026-09-26)
+
+Done:
+- `elec patterns` writes `reports/data_patterns.md`: nine patterns on the
+  delivery days before the hold-out, each with what it implies. Two first
+  readings were wrong and corrected before use: day-level volatility needs a
+  log scale (one spike dominates a day's standard deviation), and a
+  between-years classifier scored ROC-AUC 1.00 only because single held-out
+  days share their neighbours' 7-day inputs (0.74 with whole months held out).
+- The rule and the experiment list were committed to DECISIONS.md before the
+  first run. Selection folds are now 1-12 (a full year); 13-19 are the
+  hold-out.
+- `elec compare-models`: LightGBM 4.330, XGBoost 4.369, CatBoost 4.397, point
+  model with residual intervals 4.867, linear quantile regression 5.362, D-2
+  naive 8.134, baseline 8.484. Trees and direct quantiles are clearly better;
+  the three boosting libraries are within the noise.
+- `elec experiments`: none of eight passed; monotone constraints could not run
+  (LightGBM refuses them with the quantile objective). The first full run
+  crashed on that error, so the harness now records a variant that cannot run
+  instead of failing the whole programme.
+- `reports/backtest.md` re-split from saved predictions for the new hold-out.
+- 12 new tests: the candidate features ignore prices after D-2, the merit-order
+  regression recovers a known curve, the bootstrap and the rule, and every
+  comparison model and variant fits and gives ordered quantiles.

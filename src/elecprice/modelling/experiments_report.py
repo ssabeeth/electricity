@@ -9,12 +9,18 @@ def _gbp(x: float) -> str:
     return f"£{x:.3f}"
 
 
+def _best(rows: list[dict]) -> str:
+    return max((r for r in rows if r.get("adopted")), key=lambda r: r["mean_daily_gain"])["name"]
+
+
 def _row(r: dict) -> str:
     if r["name"] == "baseline":
         return (
             f"| **current model** | | {r['pinball_mean']:.3f} | | | | "
             f"{r['coverage']:.1%} | £{r['mae_p50']:.2f} | |"
         )
+    if "error" in r:
+        return f"| `{r['name']}` | {r['pattern'].split('.')[0]} | could not run | | | | | | no |"
     lo, hi = r["gain_interval"]
     return (
         f"| `{r['name']}` | {r['pattern'].split('.')[0]} | {r['pinball_mean']:.3f} "
@@ -62,6 +68,14 @@ def markdown(res: dict) -> str:
         "",
     ]
     for r in others:
+        if "error" in r:
+            lines += [
+                f"**`{r['name']}`** (pattern {r['pattern']}): {r['change']}. It could not "
+                f"run as registered: `{r['error'].splitlines()[0]}`. It is reported as not "
+                "run rather than replaced by a different change after the fact.",
+                "",
+            ]
+            continue
         lo, hi = r["gain_interval"]
         verdict = (
             "passes the rule"
@@ -107,8 +121,12 @@ def markdown(res: dict) -> str:
             f"Together: pinball {combo['pinball_mean']:.3f} ({combo['relative_gain']:+.1%}, "
             f"daily gain {_gbp(lo)} to {_gbp(hi)}), better in {combo['folds_better']} of "
             f"{combo['folds']} folds, coverage {combo['coverage']:.1%}: the combination "
-            + ("passes the rule and is adopted." if combo["adopted"] else "fails the rule.")
-            + "",
+            + (
+                "passes the rule and is adopted."
+                if combo["adopted"]
+                else "fails the rule, so the single change with the largest gain, "
+                f"`{_best(others)}`, is adopted."
+            ),
             "",
         ]
     else:

@@ -394,8 +394,13 @@ def adopt(cmp: dict, coverage: float) -> bool:
 
 
 def _run_one(name: str, build, df, folds, quantiles) -> tuple[str, dict]:
+    """One variant over all folds; a variant that cannot run is recorded, not fatal."""
     t0 = time.perf_counter()
-    out = run_folds(build, df, folds, quantiles)
+    try:
+        out = run_folds(build, df, folds, quantiles)
+    except Exception as exc:  # a library refusing a setting is itself a result
+        log.warning("%s: could not run: %s", name, exc)
+        return name, {"error": f"{type(exc).__name__}: {exc}"}
     log.info("%s: %d folds in %.0f s", name, len(folds), time.perf_counter() - t0)
     return name, out
 
@@ -470,7 +475,20 @@ def run(out_dir: Path | None = None, workers: int = 3, only: list[str] | None = 
             "fit_seconds": runs["baseline"]["fit_seconds"],
         }
     ]
+    if "error" in runs["baseline"]:
+        raise RuntimeError(f"the baseline did not run: {runs['baseline']['error']}")
     for e in exps:
+        if "error" in runs[e.name]:
+            results.append(
+                {
+                    "name": e.name,
+                    "pattern": e.pattern,
+                    "change": e.change,
+                    "error": runs[e.name]["error"],
+                    "adopted": False,
+                }
+            )
+            continue
         pred = runs[e.name]["predictions"]
         s = summarise(pred, q)
         cmp = paired(base, pred, q)
@@ -518,3 +536,63 @@ def pinball_check(pred: pd.DataFrame, quantiles) -> float:
     """Mean pinball over quantiles, as metrics.evaluate computes it (used in tests)."""
     y = pred[TARGET].to_numpy(dtype=float)
     return float(np.mean([pinball_loss(y, pred[qcol(q)].to_numpy(), q) for q in quantiles]))
+
+
+def holdout(out_dir: Path | None = None, members: list[str] | None = None) -> dict:
+    """Read the hold-out once: the adopted configuration against the current model.
+
+    ``members`` defaults to what ``reports/experiments.json`` adopted (the passing
+    combination, or the single best change). The result is appended to that file
+    and to ``reports/experiments.md``, with the time it was read.
+    """
+    from datetime import UTC, datetime
+
+    from elecprice.modelling.experiments_report import write
+
+    out_dir = out_dir or REPO_ROOT / "reports"
+    res = json.loads((out_dir / "experiments.json").read_text())
+    if res.get("holdout"):
+        raise RuntimeError(f"the hold-out was already read at {res['holdout']['read_at']}")
+    members = members or final_members(res)
+    if not members:
+        raise RuntimeError("nothing was adopted, so there is nothing to test on the hold-out")
+    config = ModelConfig.load()
+    df = add_candidates(load_frame())
+    folds = folds_for(df, config, holdout=True)
+    q = config.quantiles
+    runs = run_many(
+        {
+            "current": partial(current_model, config),
+            "adopted": _combination(config, members, res["markers"]),
+        },
+        df,
+        folds,
+        q,
+        workers=2,
+    )
+    base, new = runs["current"]["predictions"], runs["adopted"]["predictions"]
+    cmp = paired(base, new, q)
+    res["holdout"] = {
+        "read_at": datetime.now(UTC).strftime("%Y-%m-%d %H:%M UTC"),
+        "members": members,
+        "folds": [f.label for f in folds],
+        "n": len(base),
+        "base": summarise(base, q),
+        "new": summarise(new, q),
+        **{k: cmp[k] for k in ("relative_gain", "gain_interval", "folds_better", "by_fold")},
+        "folds_n": cmp["folds"],
+    }
+    (out_dir / "experiments.json").write_text(json.dumps(res, indent=2, default=str) + "\n")
+    write(res, out_dir)
+    return res["holdout"]
+
+
+def final_members(res: dict) -> list[str]:
+    """What the rule adopts: the combination if it passes, else the single best change."""
+    combo = res.get("combination")
+    if combo and combo["adopted"]:
+        return list(combo["members"])
+    passing = [r for r in res["experiments"] if r.get("adopted")]
+    if not passing:
+        return []
+    return [max(passing, key=lambda r: r["mean_daily_gain"])["name"]]

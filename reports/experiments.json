@@ -1,0 +1,727 @@
+{
+  "folds": [
+    "2025-03",
+    "2025-04",
+    "2025-05",
+    "2025-06",
+    "2025-07",
+    "2025-08",
+    "2025-09",
+    "2025-10",
+    "2025-11",
+    "2025-12",
+    "2026-01",
+    "2026-02"
+  ],
+  "last_day": "2026-02-28",
+  "holdout_from": "2026-03-01",
+  "rule": {
+    "bootstrap": 2000,
+    "block_days": 7,
+    "min_folds_better": 9,
+    "coverage_range": [
+      0.77,
+      0.83
+    ]
+  },
+  "markers": [
+    "nuclear_share_7d",
+    "demand_outturn_7d_mean_mw",
+    "net_imports_7d_mean_mw"
+  ],
+  "experiments": [
+    {
+      "name": "baseline",
+      "pattern": "",
+      "change": "the current model",
+      "n": 17509,
+      "pinball_mean": 4.329887617857875,
+      "mae_p50": 13.317815182441905,
+      "rmse_p50": 19.084446228251316,
+      "coverage": 0.802787138043292,
+      "interval_width": 41.67450323630248,
+      "fit_seconds": 299.6137268318562
+    },
+    {
+      "name": "merit_order",
+      "pattern": "2. The level drifts, and the merit order moves with it",
+      "change": "add the slope of price on residual demand over the last 14 settled days, and the price that curve implies for each half-hour (relative to the 7-day mean)",
+      "n": 17509,
+      "pinball_mean": 4.369693181838051,
+      "mae_p50": 13.536198368185902,
+      "rmse_p50": 19.267164589077137,
+      "coverage": 0.7974184705008852,
+      "interval_width": 41.73958700586659,
+      "fit_seconds": 303.62489758303855,
+      "days": 365,
+      "mean_daily_gain": -0.03963029989738485,
+      "relative_gain": -0.00914844176558518,
+      "gain_interval": [
+        -0.12844626468630374,
+        0.04454497566210688
+      ],
+      "folds_better": 5,
+      "folds": 12,
+      "by_fold": [
+        {
+          "fold": 1,
+          "base": 3.7678608217174134,
+          "other": 3.835094519455953
+        },
+        {
+          "fold": 2,
+          "base": 4.743447940796894,
+          "other": 4.58793824247537
+        },
+        {
+          "fold": 3,
+          "base": 4.389429955253207,
+          "other": 4.3011898619599895
+        },
+        {
+          "fold": 4,
+          "base": 5.75551119882117,
+          "other": 5.913928183760256
+        },
+        {
+          "fold": 5,
+          "base": 3.9339699279349425,
+          "other": 3.790181149568083
+        },
+        {
+          "fold": 6,
+          "base": 4.169640081266075,
+          "other": 4.2887907693889975
+        },
+        {
+          "fold": 7,
+          "base": 5.220295819549613,
+          "other": 5.053191050184695
+        },
+        {
+          "fold": 8,
+          "base": 4.49723782849473,
+          "other": 4.509863513479035
+        },
+        {
+          "fold": 9,
+          "base": 4.106966766323907,
+          "other": 4.1790934415670895
+        },
+        {
+          "fold": 10,
+          "base": 3.054823173153677,
+          "other": 3.0101895454189944
+        },
+        {
+          "fold": 11,
+          "base": 4.798084456492189,
+          "other": 4.970382508457424
+        },
+        {
+          "fold": 12,
+          "base": 3.534466412666108,
+          "other": 4.048031275759173
+        }
+      ],
+      "adopted": false
+    },
+    {
+      "name": "recency_weight",
+      "pattern": "2. The level drifts, and the merit order moves with it",
+      "change": "weight training rows by recency (half-life 180 days)",
+      "n": 17509,
+      "pinball_mean": 4.382821225296741,
+      "mae_p50": 13.369841026044574,
+      "rmse_p50": 19.24732897987808,
+      "coverage": 0.7955908389970872,
+      "interval_width": 41.34427268218246,
+      "fit_seconds": 387.0812039991142,
+      "days": 365,
+      "mean_daily_gain": -0.05324931973638064,
+      "relative_gain": -0.012292319309384035,
+      "gain_interval": [
+        -0.10833200511227432,
+        -0.0009000704279583864
+      ],
+      "folds_better": 4,
+      "folds": 12,
+      "by_fold": [
+        {
+          "fold": 1,
+          "base": 3.7678608217174134,
+          "other": 3.788971575556266
+        },
+        {
+          "fold": 2,
+          "base": 4.743447940796894,
+          "other": 4.749225251143043
+        },
+        {
+          "fold": 3,
+          "base": 4.389429955253207,
+          "other": 4.405164762964118
+        },
+        {
+          "fold": 4,
+          "base": 5.75551119882117,
+          "other": 5.882785238925518
+        },
+        {
+          "fold": 5,
+          "base": 3.9339699279349425,
+          "other": 3.9046210315667964
+        },
+        {
+          "fold": 6,
+          "base": 4.169640081266075,
+          "other": 4.090041464344415
+        },
+        {
+          "fold": 7,
+          "base": 5.220295819549613,
+          "other": 5.297912732109125
+        },
+        {
+          "fold": 8,
+          "base": 4.49723782849473,
+          "other": 4.434161645444261
+        },
+        {
+          "fold": 9,
+          "base": 4.106966766323907,
+          "other": 4.065905425518608
+        },
+        {
+          "fold": 10,
+          "base": 3.054823173153677,
+          "other": 3.1385201000429492
+        },
+        {
+          "fold": 11,
+          "base": 4.798084456492189,
+          "other": 5.159696562299962
+        },
+        {
+          "fold": 12,
+          "base": 3.534466412666108,
+          "other": 3.700109656546163
+        }
+      ],
+      "adopted": false
+    },
+    {
+      "name": "rolling_365d",
+      "pattern": "2. The level drifts, and the merit order moves with it",
+      "change": "train on the last 365 days instead of the expanding window",
+      "n": 17509,
+      "pinball_mean": 4.433296305783342,
+      "mae_p50": 13.831311949882595,
+      "rmse_p50": 19.70355521100151,
+      "coverage": 0.8048432234850649,
+      "interval_width": 41.75227695761961,
+      "fit_seconds": 282.411451042979,
+      "days": 365,
+      "mean_daily_gain": -0.10338004746900659,
+      "relative_gain": -0.023864728413424102,
+      "gain_interval": [
+        -0.2386473912049826,
+        0.012768909005228112
+      ],
+      "folds_better": 4,
+      "folds": 12,
+      "by_fold": [
+        {
+          "fold": 1,
+          "base": 3.7678608217174134,
+          "other": 3.7678608217174134
+        },
+        {
+          "fold": 2,
+          "base": 4.743447940796894,
+          "other": 4.760525325615693
+        },
+        {
+          "fold": 3,
+          "base": 4.389429955253207,
+          "other": 4.447957920950035
+        },
+        {
+          "fold": 4,
+          "base": 5.75551119882117,
+          "other": 5.933668498677251
+        },
+        {
+          "fold": 5,
+          "base": 3.9339699279349425,
+          "other": 3.958744161872716
+        },
+        {
+          "fold": 6,
+          "base": 4.169640081266075,
+          "other": 4.047675609775979
+        },
+        {
+          "fold": 7,
+          "base": 5.220295819549613,
+          "other": 5.376010028497733
+        },
+        {
+          "fold": 8,
+          "base": 4.49723782849473,
+          "other": 4.343997332013498
+        },
+        {
+          "fold": 9,
+          "base": 4.106966766323907,
+          "other": 3.9580863686813883
+        },
+        {
+          "fold": 10,
+          "base": 3.054823173153677,
+          "other": 3.219832278976573
+        },
+        {
+          "fold": 11,
+          "base": 4.798084456492189,
+          "other": 5.970306246705348
+        },
+        {
+          "fold": 12,
+          "base": 3.534466412666108,
+          "other": 3.398751826995718
+        }
+      ],
+      "adopted": false
+    },
+    {
+      "name": "monotone_residual_demand",
+      "pattern": "3. Residual demand is the strongest single signal",
+      "change": "constrain every tree to be non-decreasing in residual demand",
+      "error": "LightGBMError: Cannot use ``monotone_constraints`` in quantile objective, please disable it.",
+      "adopted": false
+    },
+    {
+      "name": "same_period_profile",
+      "pattern": "4. The daily shape repeats",
+      "change": "add the same half-hour's mean price over the last 7 settled days (level and relative to the 7-day mean)",
+      "n": 17509,
+      "pinball_mean": 4.337804792058441,
+      "mae_p50": 13.254171028917002,
+      "rmse_p50": 19.04286722272424,
+      "coverage": 0.8063852875663944,
+      "interval_width": 42.380284573780116,
+      "fit_seconds": 302.61298012314364,
+      "days": 365,
+      "mean_daily_gain": -0.007855837730238473,
+      "relative_gain": -0.0018134779242413974,
+      "gain_interval": [
+        -0.052125152318811464,
+        0.03182176399627785
+      ],
+      "folds_better": 6,
+      "folds": 12,
+      "by_fold": [
+        {
+          "fold": 1,
+          "base": 3.7678608217174134,
+          "other": 3.946591746293223
+        },
+        {
+          "fold": 2,
+          "base": 4.743447940796894,
+          "other": 4.668742125622921
+        },
+        {
+          "fold": 3,
+          "base": 4.389429955253207,
+          "other": 4.352995361606855
+        },
+        {
+          "fold": 4,
+          "base": 5.75551119882117,
+          "other": 5.80315183523322
+        },
+        {
+          "fold": 5,
+          "base": 3.9339699279349425,
+          "other": 3.880110364806433
+        },
+        {
+          "fold": 6,
+          "base": 4.169640081266075,
+          "other": 4.106540635291014
+        },
+        {
+          "fold": 7,
+          "base": 5.220295819549613,
+          "other": 5.0992250394560585
+        },
+        {
+          "fold": 8,
+          "base": 4.49723782849473,
+          "other": 4.524914582272234
+        },
+        {
+          "fold": 9,
+          "base": 4.106966766323907,
+          "other": 4.178383632580326
+        },
+        {
+          "fold": 10,
+          "base": 3.054823173153677,
+          "other": 3.1143923249445447
+        },
+        {
+          "fold": 11,
+          "base": 4.798084456492189,
+          "other": 4.930405953057394
+        },
+        {
+          "fold": 12,
+          "base": 3.534466412666108,
+          "other": 3.4491513167541297
+        }
+      ],
+      "adopted": false
+    },
+    {
+      "name": "renewable_share",
+      "pattern": "6. Renewables set the bottom of the distribution",
+      "change": "add the forecast wind and solar share of demand",
+      "n": 17509,
+      "pinball_mean": 4.30516067046755,
+      "mae_p50": 13.30270205322729,
+      "rmse_p50": 19.066894117203365,
+      "coverage": 0.8005025986635445,
+      "interval_width": 41.33388386362627,
+      "fit_seconds": 299.4143471267307,
+      "days": 365,
+      "mean_daily_gain": 0.024712014211650226,
+      "relative_gain": 0.005704635683075262,
+      "gain_interval": [
+        -0.027474919806455427,
+        0.09697340594331276
+      ],
+      "folds_better": 5,
+      "folds": 12,
+      "by_fold": [
+        {
+          "fold": 1,
+          "base": 3.7678608217174134,
+          "other": 3.7899234655015976
+        },
+        {
+          "fold": 2,
+          "base": 4.743447940796894,
+          "other": 4.645889529736034
+        },
+        {
+          "fold": 3,
+          "base": 4.389429955253207,
+          "other": 4.391370358311025
+        },
+        {
+          "fold": 4,
+          "base": 5.75551119882117,
+          "other": 5.776621941684747
+        },
+        {
+          "fold": 5,
+          "base": 3.9339699279349425,
+          "other": 3.5854121120647426
+        },
+        {
+          "fold": 6,
+          "base": 4.169640081266075,
+          "other": 4.127236185149615
+        },
+        {
+          "fold": 7,
+          "base": 5.220295819549613,
+          "other": 5.167891977541432
+        },
+        {
+          "fold": 8,
+          "base": 4.49723782849473,
+          "other": 4.490526060851911
+        },
+        {
+          "fold": 9,
+          "base": 4.106966766323907,
+          "other": 4.1573213645657106
+        },
+        {
+          "fold": 10,
+          "base": 3.054823173153677,
+          "other": 3.086358798617751
+        },
+        {
+          "fold": 11,
+          "base": 4.798084456492189,
+          "other": 4.904018837972924
+        },
+        {
+          "fold": 12,
+          "base": 3.534466412666108,
+          "other": 3.5581077202805664
+        }
+      ],
+      "adopted": false
+    },
+    {
+      "name": "calibration_28d",
+      "pattern": "7. Volatility persists for days, not weeks",
+      "change": "estimate the conformal shifts on the last 28 days instead of 56",
+      "n": 17509,
+      "pinball_mean": 4.384937822532468,
+      "mae_p50": 13.58272261175985,
+      "rmse_p50": 19.30812374119351,
+      "coverage": 0.7824547375635388,
+      "interval_width": 40.7467057114302,
+      "fit_seconds": 296.90251683373936,
+      "days": 365,
+      "mean_daily_gain": -0.05521844799336612,
+      "relative_gain": -0.012746881985786813,
+      "gain_interval": [
+        -0.12520944846244073,
+        0.01625331489035044
+      ],
+      "folds_better": 6,
+      "folds": 12,
+      "by_fold": [
+        {
+          "fold": 1,
+          "base": 3.7678608217174134,
+          "other": 3.5910984914958544
+        },
+        {
+          "fold": 2,
+          "base": 4.743447940796894,
+          "other": 4.679845135763664
+        },
+        {
+          "fold": 3,
+          "base": 4.389429955253207,
+          "other": 4.395729795746994
+        },
+        {
+          "fold": 4,
+          "base": 5.75551119882117,
+          "other": 5.666160290647969
+        },
+        {
+          "fold": 5,
+          "base": 3.9339699279349425,
+          "other": 4.067184547186068
+        },
+        {
+          "fold": 6,
+          "base": 4.169640081266075,
+          "other": 4.228418498019561
+        },
+        {
+          "fold": 7,
+          "base": 5.220295819549613,
+          "other": 5.170688948368656
+        },
+        {
+          "fold": 8,
+          "base": 4.49723782849473,
+          "other": 4.587990242150995
+        },
+        {
+          "fold": 9,
+          "base": 4.106966766323907,
+          "other": 4.069653501268088
+        },
+        {
+          "fold": 10,
+          "base": 3.054823173153677,
+          "other": 3.0073619654139345
+        },
+        {
+          "fold": 11,
+          "base": 4.798084456492189,
+          "other": 4.958541071573525
+        },
+        {
+          "fold": 12,
+          "base": 3.534466412666108,
+          "other": 4.258127142502598
+        }
+      ],
+      "adopted": false
+    },
+    {
+      "name": "calibration_by_hour",
+      "pattern": "8. Where the current model misses",
+      "change": "estimate the conformal shifts per time-of-day group",
+      "n": 17509,
+      "pinball_mean": 4.341351447347071,
+      "mae_p50": 13.35183452063836,
+      "rmse_p50": 19.073891044527155,
+      "coverage": 0.7969615626249358,
+      "interval_width": 41.89496260655288,
+      "fit_seconds": 256.16112220683135,
+      "days": 365,
+      "mean_daily_gain": -0.011401691676043485,
+      "relative_gain": -0.002632019252882925,
+      "gain_interval": [
+        -0.03266944276930027,
+        0.012144768871454601
+      ],
+      "folds_better": 5,
+      "folds": 12,
+      "by_fold": [
+        {
+          "fold": 1,
+          "base": 3.7678608217174134,
+          "other": 3.806762490740685
+        },
+        {
+          "fold": 2,
+          "base": 4.743447940796894,
+          "other": 4.73424813273875
+        },
+        {
+          "fold": 3,
+          "base": 4.389429955253207,
+          "other": 4.399664244616162
+        },
+        {
+          "fold": 4,
+          "base": 5.75551119882117,
+          "other": 5.707319508359418
+        },
+        {
+          "fold": 5,
+          "base": 3.9339699279349425,
+          "other": 3.9936113977833108
+        },
+        {
+          "fold": 6,
+          "base": 4.169640081266075,
+          "other": 4.149049251716973
+        },
+        {
+          "fold": 7,
+          "base": 5.220295819549613,
+          "other": 5.213709329912677
+        },
+        {
+          "fold": 8,
+          "base": 4.49723782849473,
+          "other": 4.539674136585941
+        },
+        {
+          "fold": 9,
+          "base": 4.106966766323907,
+          "other": 4.188726655622371
+        },
+        {
+          "fold": 10,
+          "base": 3.054823173153677,
+          "other": 3.0873608558732113
+        },
+        {
+          "fold": 11,
+          "base": 4.798084456492189,
+          "other": 4.715304926946356
+        },
+        {
+          "fold": 12,
+          "base": 3.534466412666108,
+          "other": 3.5753977095439318
+        }
+      ],
+      "adopted": false
+    },
+    {
+      "name": "drop_regime_markers",
+      "pattern": "9. The inputs drift between years",
+      "change": "drop `nuclear_share_7d`, `demand_outturn_7d_mean_mw`, `net_imports_7d_mean_mw`",
+      "n": 17509,
+      "pinball_mean": 4.3462794208455415,
+      "mae_p50": 13.38166727378147,
+      "rmse_p50": 19.25431203299641,
+      "coverage": 0.8072419898337998,
+      "interval_width": 42.183946617126416,
+      "fit_seconds": 125.27344487491064,
+      "days": 365,
+      "mean_daily_gain": -0.016350126583733963,
+      "relative_gain": -0.0037743388593712564,
+      "gain_interval": [
+        -0.06645444733627054,
+        0.028764760937401487
+      ],
+      "folds_better": 6,
+      "folds": 12,
+      "by_fold": [
+        {
+          "fold": 1,
+          "base": 3.7678608217174134,
+          "other": 3.8478124839858507
+        },
+        {
+          "fold": 2,
+          "base": 4.743447940796894,
+          "other": 4.717140106341601
+        },
+        {
+          "fold": 3,
+          "base": 4.389429955253207,
+          "other": 4.35092690096364
+        },
+        {
+          "fold": 4,
+          "base": 5.75551119882117,
+          "other": 5.8821379937598675
+        },
+        {
+          "fold": 5,
+          "base": 3.9339699279349425,
+          "other": 3.9767632254641843
+        },
+        {
+          "fold": 6,
+          "base": 4.169640081266075,
+          "other": 4.107669608100822
+        },
+        {
+          "fold": 7,
+          "base": 5.220295819549613,
+          "other": 5.357674702552485
+        },
+        {
+          "fold": 8,
+          "base": 4.49723782849473,
+          "other": 4.468965584372529
+        },
+        {
+          "fold": 9,
+          "base": 4.106966766323907,
+          "other": 4.066555143495449
+        },
+        {
+          "fold": 10,
+          "base": 3.054823173153677,
+          "other": 3.012980059425222
+        },
+        {
+          "fold": 11,
+          "base": 4.798084456492189,
+          "other": 4.839937087013109
+        },
+        {
+          "fold": 12,
+          "base": 3.534466412666108,
+          "other": 3.544471667390399
+        }
+      ],
+      "adopted": false
+    }
+  ],
+  "adopted": [],
+  "combination": null
+}

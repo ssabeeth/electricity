@@ -49,6 +49,7 @@ def test_project_compiles_to_valid_bigquery_sql(tmp_path):
     env = os.environ | {
         "DBT_PROFILES_DIR": str(REPO / "dbt"),
         "DBT_TARGET": "bigquery",
+        "BQ_AUTH_METHOD": "service-account",
         "GCP_PROJECT": "offline-compile",
         "GOOGLE_APPLICATION_CREDENTIALS": str(fake_keyfile(tmp_path / "sa.json")),
         "DBT_TARGET_PATH": str(tmp_path / "target"),

@@ -505,3 +505,31 @@ which downloads the `track-record` branch at most hourly and serves the existing
 dashboard with the API in-process. It never needs redeploying for new data. Its
 `requirements.txt` sits beside the entry point so Community Cloud uses it instead
 of `uv.lock`; the dashboard does not need MLflow, dbt or LightGBM.
+
+## 2026-09-25 — BigQuery run for real, on the free sandbox
+
+**Context.** The BigQuery target had only been compiled and parsed offline. The
+owner created a GCP project (`elecprice-portfolio`) without a billing account,
+which puts it on the BigQuery sandbox, and signed in with
+`gcloud auth application-default login`.
+
+**Auth.** Options: a service-account key file (the original plan) or the
+owner's own Application Default Credentials. Chose ADC (`method: oauth`) as the
+default: nothing to create, store or rotate, and no key anywhere near the
+repository. `BQ_AUTH_METHOD=service-account` keeps the key-file route for a
+server, where there is no person to log in.
+
+**What the run found.** One real portability bug: `accepted_values` quotes its
+values by default, and BigQuery refuses `INT64 IN ('1', '2')` where DuckDB
+casts. The three integer tests now set `quote: false`. The offline sqlglot
+parse could not catch it, because the SQL is valid; only the types are wrong.
+
+**Snapshots on the sandbox.** Options: switch them off on BigQuery, fake them
+with a full rebuild, or skip them on the sandbox only. A rebuilt snapshot keeps
+no history, so it would be a snapshot in name only. Chose `BQ_SANDBOX=true`,
+which disables them; their first run (`CREATE TABLE`) was verified before the
+second (`MERGE`) was refused. With billing enabled they run unchanged.
+
+**Verification.** `scripts/compare_warehouses.py` compares every value of the
+feature mart and the price actuals across the two warehouses: 2,246,300
+values, no differences.

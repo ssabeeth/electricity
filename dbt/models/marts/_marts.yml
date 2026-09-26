@@ -56,6 +56,7 @@ models:
           - accepted_values:
               arguments:
                 values: [1, 2]
+                quote: false  # integers; BigQuery will not compare INT64 with a quoted string
       - name: price_d7_same_period
         description: MID at the same UK clock time seven days earlier. Also the naive seasonal baseline.
 

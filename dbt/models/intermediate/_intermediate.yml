@@ -19,6 +19,7 @@ models:
           - accepted_values:
               arguments:
                 values: [46, 48, 50]
+                quote: false  # integers; BigQuery will not compare INT64 with a quoted string
 
   - name: int_demand_forecast_asof
     description: Latest NDF vintage published at or before the cutoff, per delivery period.

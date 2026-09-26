@@ -54,6 +54,9 @@ seeds:
 snapshots:
   elecprice:
     +schema: snapshots
+    # Updating a snapshot is a MERGE, and BigQuery's free sandbox forbids DML.
+    # BQ_SANDBOX=true skips them there; with billing enabled they run as usual.
+    +enabled: "{{ env_var('BQ_SANDBOX', 'false') != 'true' }}"
 
 data_tests:
   elecprice:

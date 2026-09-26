@@ -4,6 +4,20 @@
 track record (tag `v1.1-track-record`). No blockers.**
 The remote `origin` is `https://github.com/ssabeeth/electricity.git`.
 
+## In progress (2026-09-26): modelling programme, branch `phase-13-experiments`
+
+Done on the branch: `elec patterns` (`reports/data_patterns.md`, delivery days
+before 2026-03-01 only), the pre-registered rule and experiment list
+(DECISIONS.md, 2026-09-26), `elec experiments` and `elec compare-models` (code
+and tests). Still to do, in order:
+
+1. Run `elec experiments` and `elec compare-models` (selection folds only).
+2. If anything is adopted: build it properly (dbt, point-in-time tested, or the
+   derived features in `modelling/data.py`), change `configs/model.yaml`, then
+   read the hold-out once (`elec backtest`, `elec simulate`) and record it.
+3. DECISIONS (results and why LightGBM), README (modelling section), PROGRESS;
+   CI; merge into `main`; tag `v1.3-experiments`.
+
 **What only the owner can do.** Each of these costs money or needs the owner's
 credentials, and none has been done:
 

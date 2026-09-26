@@ -207,6 +207,28 @@ def cmd_track_record(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_patterns(args: argparse.Namespace) -> int:
+    from elecprice.modelling import patterns
+
+    patterns.run()
+    return 0
+
+
+def cmd_experiments(args: argparse.Namespace) -> int:
+    from elecprice.modelling import experiments
+
+    res = experiments.run(workers=args.workers, only=args.only or None)
+    print("adopted:", ", ".join(res["adopted"]) or "nothing")
+    return 0
+
+
+def cmd_compare_models(args: argparse.Namespace) -> int:
+    from elecprice.modelling import compare
+
+    compare.run(workers=args.workers)
+    return 0
+
+
 def cmd_load_bigquery(args: argparse.Namespace) -> int:
     from elecprice.bigquery_load import load
 
@@ -301,6 +323,18 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--repo-url", default="https://github.com/ssabeeth/electricity")
     p.add_argument("--summary", help="daily: also write the result as JSON to this file")
     p.set_defaults(handler=cmd_track_record)
+
+    p = sub.add_parser("patterns", help="Data patterns report (never reads the hold-out)")
+    p.set_defaults(handler=cmd_patterns)
+
+    p = sub.add_parser("experiments", help="Pre-registered experiments on the selection folds")
+    p.add_argument("--only", nargs="*", help="run only these experiments (and the baseline)")
+    p.add_argument("--workers", type=int, default=3, help="experiments run in parallel")
+    p.set_defaults(handler=cmd_experiments)
+
+    p = sub.add_parser("compare-models", help="Model families on the selection folds")
+    p.add_argument("--workers", type=int, default=3, help="models fitted in parallel")
+    p.set_defaults(handler=cmd_compare_models)
 
     p = sub.add_parser("load-bigquery", help="Load the Parquet lake into BigQuery raw tables")
     p.add_argument("--recent-days", type=int, help="append only chunks ending in the last N days")

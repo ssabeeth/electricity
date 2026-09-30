@@ -12,5 +12,20 @@
       "meta.json": "224973b4a36ee4feb768ff13c83407b286d3c5045822dc2b375bff14d91de4df",
       "model_type.json": "5b465788f822f762b7934530f041d200f286cc7343b599469f02ff6eac2d151e"
     }
+  },
+  {
+    "release": "model-2026-10",
+    "month": "2026-10",
+    "trained_from": "2024-03-01",
+    "trained_through": "2026-09-29",
+    "training_rows": 45262,
+    "exported_at": "2026-09-30T16:15:07Z",
+    "sha256": {
+      "booster_p10.txt": "5cba55549ed6ea92f1c5abf644f62087d4b3cd2359402bd7d9fc1fbecf168886",
+      "booster_p50.txt": "1fe7fedd02c8c795e29ad0d378b40769cdfbfa5232826d10d9618e5aa3a3c6b1",
+      "booster_p90.txt": "fc31b80640f63ce76bac1936f6c1940ca1ccd37683be3ff838b70a40f71b806b",
+      "meta.json": "fa09011eb9890a96ec2abca8c0c853a25a25259a2368d1934fe6b987ff7e5631",
+      "model_type.json": "5b465788f822f762b7934530f041d200f286cc7343b599469f02ff6eac2d151e"
+    }
   }
 ]

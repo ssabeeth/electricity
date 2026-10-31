@@ -27,5 +27,20 @@
       "meta.json": "fa09011eb9890a96ec2abca8c0c853a25a25259a2368d1934fe6b987ff7e5631",
       "model_type.json": "5b465788f822f762b7934530f041d200f286cc7343b599469f02ff6eac2d151e"
     }
+  },
+  {
+    "release": "model-2026-11",
+    "month": "2026-11",
+    "trained_from": "2024-03-01",
+    "trained_through": "2026-10-30",
+    "training_rows": 46752,
+    "exported_at": "2026-10-31T15:25:25Z",
+    "sha256": {
+      "booster_p10.txt": "226f418b940a8518f9eab0c33a232733b1075565ac49937e24be782cd306fbeb",
+      "booster_p50.txt": "e3f7668d0bcd8ee3b43c7d0ebdd8122ee710fb0712274533fc2bf8b822f01c43",
+      "booster_p90.txt": "1f2817df4ace7959b9c57b2cfcfec2f16f8cdc89c6a01eb56ee7fe5ebfb3b63d",
+      "meta.json": "0c084d4c58781a431b1762411ef844c92c21c90d7eda3ab2f98dd847a2aa84e1",
+      "model_type.json": "5b465788f822f762b7934530f041d200f286cc7343b599469f02ff6eac2d151e"
+    }
   }
 ]

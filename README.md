@@ -16,7 +16,7 @@ The model is refitted at the first forecast of each month on every delivery day 
 
 ## Running totals
 
-- Days forecast: 40 (2026-09-25 to 2026-11-05)
+- Days forecast: 41 (2026-09-25 to 2026-11-06)
 - Days settled against actual prices: 39
 - P10–P90 coverage: 79.1% of 1,874 half-hours (nominal 80%)
 - MAE of the P50: £26.64/MWh
@@ -34,4 +34,4 @@ The model is refitted at the first forecast of each month on every delivery day 
 
 Open any file in `forecasts/` and look at its history: the commit that added it predates the delivery day in its name. `created_at` inside the file is when it was computed, and `cutoff_utc` is the 09:00 UK information cutoff the features respect.
 
-_Updated 2026-11-04 17:22 UTC._
+_Updated 2026-11-05 17:29 UTC._

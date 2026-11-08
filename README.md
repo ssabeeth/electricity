@@ -16,17 +16,17 @@ The model is refitted at the first forecast of each month on every delivery day 
 
 ## Running totals
 
-- Days forecast: 43 (2026-09-25 to 2026-11-08)
-- Days settled against actual prices: 41
-- P10–P90 coverage: 80.0% of 1,970 half-hours (nominal 80%)
-- MAE of the P50: £26.34/MWh
-- Pinball-loss skill against the seasonal-naive baseline: 56.9%
+- Days forecast: 44 (2026-09-25 to 2026-11-09)
+- Days settled against actual prices: 42
+- P10–P90 coverage: 80.5% of 2,018 half-hours (nominal 80%)
+- MAE of the P50: £26.07/MWh
+- Pinball-loss skill against the seasonal-naive baseline: 56.6%
 
 | Battery strategy (1 MW / 2 MWh) | Net £ | Share of perfect foresight |
 |---|---|---|
-| Scheduled on the LightGBM forecast | £6,126.32 | 79.1% |
-| Scheduled on the seasonal-naive forecast | £4,634.19 | 59.9% |
-| Perfect foresight (upper bound) | £7,740.52 | — |
+| Scheduled on the LightGBM forecast | £6,171.24 | 78.9% |
+| Scheduled on the seasonal-naive forecast | £4,691.12 | 60.0% |
+| Perfect foresight (upper bound) | £7,824.05 | — |
 
 `snapshot/` holds the walk-forward backtest and battery simulation from release v1.0, which the dashboard shows beside this record. It is not part of the live record and is not scored here.
 
@@ -34,4 +34,4 @@ The model is refitted at the first forecast of each month on every delivery day 
 
 Open any file in `forecasts/` and look at its history: the commit that added it predates the delivery day in its name. `created_at` inside the file is when it was computed, and `cutoff_utc` is the 09:00 UK information cutoff the features respect.
 
-_Updated 2026-11-07 15:45 UTC._
+_Updated 2026-11-08 16:04 UTC._
